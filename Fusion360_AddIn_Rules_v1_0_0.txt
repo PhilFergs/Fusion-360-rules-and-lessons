@@ -1,0 +1,270 @@
+Fusion 360 Add-In Development Rules & Best Practices
+Version: 1.0.0
+===================================================
+
+Purpose
+-------
+This document collects all stable rules, conventions, and development patterns
+established across the entire Fusion 360 EA Script project.  
+It is intended to act as a reusable baseline for all future Fusion 360 scripts,
+tools, and add-ins.
+
+Use this file as:
+- A coding standard for future work  
+- A reference for ChatGPT sessions  
+- A shared GitHub resource for structured, progressive development  
+
+------------------------------------------------------------
+1. General Fusion 360 Scripting Principles
+------------------------------------------------------------
+
+1.1 Always use Full, Ready-to-Run Code  
+- When generating scripts, supply full working files, never snippets.
+- Code must run in Fusion 360 without manual patching.
+
+1.2 Maintain Strict Module Separation  
+Keep functionality isolated:
+- EA_AddIn.py → entry point only  
+- EA_Main.py → core logic  
+- EA_State.py → persistent settings, configuration  
+- EA_UI.py → commands, palettes, events  
+- EA_Geometry.py → geometric constructors  
+- EA_Preview.py → preview graphics  
+
+1.3 Use Clear, Deterministic Naming  
+- Use long descriptive names: createAngleBody(), exportSketchCSV(), etc.  
+- Do not use abbreviations unless industry-standard.
+
+1.4 All scripts must handle exceptions gracefully  
+Use wrapped try/except blocks in every command handler:
+```
+try:
+    # code
+except:
+    ui.messageBox(traceback.format_exc())
+```
+
+1.5 Never assume units  
+Always resolve units explicitly:
+- Use value = adsk.core.ValueInput.createByReal(length)  
+- Avoid "cm"/"mm" confusion across user preferences.
+
+------------------------------------------------------------
+2. Add-In Folder Structure Rules
+------------------------------------------------------------
+
+2.1 Required Autodesk Add-In Layout
+```
+MyAddInName/
+    MyAddInName.py
+    MyAddInName.manifest
+    Modules/
+        EA_Main.py
+        EA_Geometry.py
+        EA_State.py
+        EA_Preview.py
+        EA_UI.py
+```
+
+2.2 Manifest Rules
+- Filename must match add-in folder and main file  
+- JSON only (Fusion 360 add-ins use JSON, not XML)  
+- Required keys:
+  - autodeskProduct
+  - type
+  - id (unique)
+  - version (sync with folder version)
+  - author
+  - description
+
+2.3 Versioning Rules
+- Parent folder version must match manifest version  
+- Versions increment MAJOR.MINOR.PATCH  
+- New parent zip = bumped version (internal modules keep consistent names)
+
+------------------------------------------------------------
+3. EA Scripting Rules (Equal Angle Project)
+------------------------------------------------------------
+
+3.1 Sketch Export Rules  
+- Export all selected sketch entities  
+- Lines must be exported with:
+  - LineID (starting at 1)  
+  - Start point XYZ  
+  - End point XYZ  
+  - Line length  
+- No area calculations unless explicitly requested  
+- LineID numbers must restart for each run
+
+3.2 CSV Export Rules  
+- Always include headers  
+- Use commas, never semicolons  
+- One row per line or profile  
+- Ensure numerical formatting is consistent (no locale variation)
+
+3.3 Geometry Creation Rules  
+- Always create bodies in new components  
+- Use stable parametric construction  
+- Holes must use construction geometry (planes, axes) for stability  
+- Internal fillets and hole distances must use named parameters
+
+3.4 EA Preview System Rules  
+- Preview bodies must use temporary BREP  
+- Preview graphics must clean themselves on command completion  
+- Use high-contrast colors for preview (default yellow)
+
+------------------------------------------------------------
+4. Event, Command, and UI Rules
+------------------------------------------------------------
+
+4.1 Command Handlers  
+Every command must define:
+- onCreate
+- onExecute
+- onInputChanged
+- onDestroy
+
+4.2 UI Panels  
+- Commands appear in the "Utilities" workspace by default  
+- Use a single command group for the entire add-in  
+- No auto-opening palettes unless explicitly requested
+
+4.3 Stability & Cleanup  
+- All event handlers must be stored in global arrays  
+- onDestroy must release:
+  - Events  
+  - Temporary bodies  
+  - Preview graphics  
+
+------------------------------------------------------------
+5. State & Configuration Rules
+------------------------------------------------------------
+
+5.1 EA_State.py controls all persistent settings  
+- Store values in a dictionary-like structure  
+- Provide get/set wrappers  
+- Never mix state logic with UI or geometry logic
+
+5.2 Avoid global variables except for:  
+- App, UI, command references  
+- Event handler arrays
+
+------------------------------------------------------------
+6. Coding Conventions & Style
+------------------------------------------------------------
+
+6.1 Imports  
+Always import Fusion modules as:
+```
+import adsk.core, adsk.fusion, adsk.cam
+import traceback
+```
+
+6.2 Never rely on implicit casting  
+Convert explicitly:
+- float()  
+- int()  
+- realValue from ValueInput  
+
+6.3 Consistent Logging  
+When debugging, use:
+```
+ui.messageBox(f"DEBUG: {value}")
+```
+Remove debugging before release versions.
+
+6.4 Maximize readability  
+- Avoid dense logic  
+- Break code into small, named methods  
+- Comment geometry steps clearly
+
+------------------------------------------------------------
+7. Error-Proofing & Crash Prevention
+------------------------------------------------------------
+
+7.1 Every geometry-dependent operation must validate:  
+- Sketch profiles exist  
+- Bodies exist  
+- Extrusions did not fail  
+- Feature timelines are enabled
+
+7.2 Always handle empty selections  
+Scripts must not crash when nothing is picked.
+
+7.3 Cleanup after partial failures  
+- Delete temporary components  
+- Clear preview bodies  
+- Reset state variables
+
+------------------------------------------------------------
+8. GitHub Workflow Recommendations
+------------------------------------------------------------
+
+8.1 Keep add-in versions in separate folders  
+Example:
+```
+Fusion360-EA/
+    v4.0.0/
+    v4.1.0/
+    v4.2.0/
+```
+
+8.2 Add a CHANGELOG.md  
+Track updates clearly:
+- Added  
+- Changed  
+- Fixed  
+- Known issues  
+
+8.3 Keep master branch always runnable  
+Never push broken add-ins to main.
+
+8.4 Use the rules file (this one) as a required reference  
+Before each ChatGPT session:
+- Paste a link to this file  
+- Tell ChatGPT to follow these rules strictly
+
+------------------------------------------------------------
+9. ChatGPT Working Rules (Project-Specific)
+------------------------------------------------------------
+
+9.1 ChatGPT must generate:  
+- Full scripts  
+- Ready-to-run add-ins  
+- Correct folder structures  
+- Clean, consistent code  
+- No missing functions or imports
+
+9.2 Avoid ZIP generation unless explicitly requested  
+Use safe delivery mode:
+- One file per message  
+- .txt attachments  
+- Predictable sequencing
+
+9.3 Maintain persistent knowledge  
+- Fusion 360 JSON manifest rules  
+- EA sketch-export numbering rules  
+- EA_AddIn scaffolding conventions  
+- Standard Python Fusion API safe patterns  
+
+9.4 When unsure, ChatGPT must ask before assuming geometry details.
+
+------------------------------------------------------------
+10. Future-Proofing
+------------------------------------------------------------
+
+10.1 Use stable API calls only  
+Avoid deprecated Fusion 360 API methods.
+
+10.2 Keep functions modular  
+Allows easy replacement when Autodesk updates API.
+
+10.3 Maintain universal geometry patterns  
+- Use construction geometry for stability  
+- Avoid referencing faces directly  
+- Prefer named entities (planes/axes)  
+- Avoid timeline index references when possible
+
+------------------------------------------------------------
+
+End of File
