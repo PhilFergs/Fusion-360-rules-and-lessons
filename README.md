@@ -97,6 +97,27 @@ and it will:
 - Add CHANGELOG entries  
 - Maintain consistent structure  
 
+
+SESSION STARTER – FUSION 360 ADD-IN WORK
+
+Before generating ANY code in this session, load and strictly follow this ruleset:
+
+https://raw.githubusercontent.com/PhilFergs/Fusion-360-rules-and-lessons/main/Fusion360_AddIn_Rules_latest.md
+
+Apply these instructions for the entire session:
+- Treat the rules file as the authoritative standard for Fusion 360 add-ins.
+- Follow the module structure, manifest rules, geometry conventions, CSV rules, state management, UI/event patterns, and error-handling patterns described there.
+- Use “safe delivery mode” for code:
+  - One complete file per message.
+  - Provide full, ready-to-run scripts (no partial snippets).
+  - Do NOT create ZIP files unless I explicitly ask.
+- You may also reference any other file from this repo:
+  https://github.com/PhilFergs/Fusion-360-rules-and-lessons
+  to understand my past scripts, patterns, or notes.
+
+When you reply, briefly confirm that you have loaded and will follow the ruleset, then ask what Fusion 360 task or feature we’re working on today.
+
+
 ---
 
 ## End of README  
