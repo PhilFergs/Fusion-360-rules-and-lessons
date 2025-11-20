@@ -1,0 +1,636 @@
+# ================================================================
+#  EA-Sketchline-Generation Script
+#  Version: v3.1.1
+#
+#  Features:
+#    - Generates Equal Angle (EA) parts from selected sketch lines.
+#    - Sketch line length = hole centre-to-centre distance.
+#    - Sketch line is aligned to the line through the centres of the holes
+#      on the gauge leg (outer face), not to the heel corner.
+#    - Line endpoints coincide with hole centres.
+#
+#    - Interactive per-EA orientation preview (case-insensitive):
+#         R / r  = Rotate +90° (0 → 90 → 180 → 270 → 0)
+#         A / a  = Accept this EA
+#         AA/aa  = Accept & apply this angle to ALL remaining EAs
+#         S / s  = Skip this EA
+#         C / c  = Cancel script (delete preview)
+#
+#    - After AA:
+#         * Current EA is accepted.
+#         * Same orientation is applied automatically to all remaining EAs.
+#
+#    - Default fillet radius = thickness.
+#    - participantBodies keeps hole cuts limited to the EA body.
+#    - Mild steel material + EA colour applied.
+#
+#  Naming Convention:
+#      EA<index>-<CCmm>mm-<flange>x<flange>x<thickness>
+#
+#  Stable rollback reference: v3.0.0
+# ================================================================
+
+import adsk.core
+import adsk.fusion
+import traceback
+import math
+
+_app = None
+_ui  = None
+
+# ========= DEFAULT PARAMETERS (mm) =========
+DEFAULT_FLANGE_LENGTH_MM   = 50.0
+DEFAULT_THICKNESS_MM       = 3.0
+DEFAULT_EXTRA_END_MM       = 20.0
+DEFAULT_HOLE_DIAMETER_MM   = 13.0
+DEFAULT_HOLE_GAUGE_MM      = 25.0
+# Fillet defaults to thickness
+# ==========================================
+
+
+# ================================================================
+#  ENTRY POINT
+# ================================================================
+def run(context):
+    global _app, _ui
+    _app = adsk.core.Application.get()
+    _ui  = _app.userInterface
+
+    try:
+        params = _collect_parameters()
+        if not params:
+            return
+
+        (flange, thickness, extra,
+         hole_d, hole_g, fillet_r) = params
+
+        _generate_ea_parts(flange, thickness, extra,
+                           hole_d, hole_g, fillet_r)
+
+    except:
+        if _ui:
+            _ui.messageBox("Failed:\n" + traceback.format_exc())
+
+
+def stop(context):
+    pass
+
+
+# ================================================================
+#  UI HELPERS
+# ================================================================
+def _prompt_float(label, default):
+    # Prompt user for a float with validation; Cancel returns None.
+    global _ui
+    while True:
+        (value_str, cancelled) = _ui.inputBox(
+            f"{label} (mm):", "EA Parameter", str(default)
+        )
+        if cancelled:
+            return None
+        try:
+            return float(value_str.strip())
+        except:
+            _ui.messageBox("Please enter a valid number.")
+
+
+def _collect_parameters():
+    # Main parameter prompt screen.
+    global _ui
+
+    while True:
+        default_fillet_for_display = DEFAULT_THICKNESS_MM
+
+        text = (
+            "Current default EA parameters (mm):\n\n"
+            f"  Flange Length:       {DEFAULT_FLANGE_LENGTH_MM}\n"
+            f"  Thickness:           {DEFAULT_THICKNESS_MM}\n"
+            f"  Extra End (each):    {DEFAULT_EXTRA_END_MM}\n"
+            f"  Hole Diameter:       {DEFAULT_HOLE_DIAMETER_MM}\n"
+            f"  Hole Gauge:          {DEFAULT_HOLE_GAUGE_MM}\n"
+            f"  Root Fillet Radius:  {default_fillet_for_display}  (matches thickness)\n\n"
+            "Type one of:\n"
+            "  Default  → use these values\n"
+            "  Custom   → enter your own values\n"
+            "  Cancel   → abort\n"
+        )
+
+        (choice, cancelled) = _ui.inputBox(text, "EA Parameters", "Default")
+        if cancelled:
+            return None
+
+        choice_clean = choice.strip().lower()
+
+        # DEFAULT MODE
+        if choice_clean in ("", "default", "d"):
+            flange    = DEFAULT_FLANGE_LENGTH_MM
+            thickness = DEFAULT_THICKNESS_MM
+            extra     = DEFAULT_EXTRA_END_MM
+            hole_d    = DEFAULT_HOLE_DIAMETER_MM
+            hole_g    = DEFAULT_HOLE_GAUGE_MM
+            fillet    = thickness
+            return (flange, thickness, extra, hole_d, hole_g, fillet)
+
+        # CUSTOM MODE
+        if choice_clean in ("custom", "c"):
+            return _collect_custom_parameters()
+
+        # CANCEL
+        if choice_clean == "cancel":
+            return None
+
+        _ui.messageBox("Please type 'Default', 'Custom', or click Cancel.")
+
+
+def _collect_custom_parameters():
+    # Prompts user for custom parameter set.
+    flange = _prompt_float("Flange Length", DEFAULT_FLANGE_LENGTH_MM)
+    if flange is None: return None
+
+    thickness = _prompt_float("Thickness", DEFAULT_THICKNESS_MM)
+    if thickness is None: return None
+
+    extra = _prompt_float("Extra End (each side)", DEFAULT_EXTRA_END_MM)
+    if extra is None: return None
+
+    hole_d = _prompt_float("Hole Diameter", DEFAULT_HOLE_DIAMETER_MM)
+    if hole_d is None: return None
+
+    hole_g = _prompt_float("Hole Gauge", DEFAULT_HOLE_GAUGE_MM)
+    if hole_g is None: return None
+
+    # Fillet = thickness by default
+    fillet = thickness
+    return (flange, thickness, extra, hole_d, hole_g, fillet)
+
+
+# ================================================================
+#  HELPERS: EA INDEX
+# ================================================================
+def _find_next_ea_index(design: adsk.fusion.Design) -> int:
+    max_index = 0
+    for comp in design.allComponents:
+        name = comp.name
+        if not name.startswith("EA"):
+            continue
+
+        digits = ""
+        for ch in name[2:]:
+            if ch.isdigit():
+                digits += ch
+            else:
+                break
+
+        if digits:
+            try:
+                n = int(digits)
+                if n > max_index:
+                    max_index = n
+            except:
+                pass
+    return max_index + 1
+
+
+# ================================================================
+#  MAIN EA GENERATION LOOP
+# ================================================================
+def _generate_ea_parts(flange, thickness, extra,
+                       hole_d, hole_g, fillet_r):
+
+    design = adsk.fusion.Design.cast(_app.activeProduct)
+    root   = design.rootComponent
+
+    lines = _get_selected_sketch_lines(_ui)
+    if not lines:
+        _ui.messageBox("Please select sketch lines before running.")
+        return
+
+    next_index = _find_next_ea_index(design)
+    created = 0
+
+    # State for “Accept All”
+    lock_orientation = False
+    global_angle = None  # degrees
+
+    for line in lines:
+        result, global_angle, lock_orientation = _create_ea_for_line(
+            design, root, line, next_index,
+            flange, thickness, extra,
+            hole_d, hole_g, fillet_r,
+            global_angle, lock_orientation
+        )
+
+        if result is True:       # accepted
+            created += 1
+            next_index += 1
+        elif result is None:     # cancelled
+            _ui.messageBox(f"Script cancelled after creating {created} components.")
+            return
+        # result == False → skipped
+
+    _ui.messageBox(f"Created {created} EA components.")
+
+
+def _get_selected_sketch_lines(ui):
+    arr = []
+    sel = ui.activeSelections
+    for i in range(sel.count):
+        ent = sel.item(i).entity
+        sk = adsk.fusion.SketchLine.cast(ent)
+        if sk:
+            arr.append(sk)
+    return arr
+
+
+# ================================================================
+#  ORIENTATION MATRIX (ALIGN HOLE LINE TO SKETCH LINE)
+# ================================================================
+def _create_orientation_matrix(line_mid, x_base, y_axis, z_base,
+                               angle_deg, hole_g_u):
+    # Create occurrence transform such that:
+    #   • Y-axis aligns with sketch line direction
+    #   • Rotated X/Z define EA cross-section orientation
+    #   • The local hole-centre-line point (X = hole_g, Y = 0) maps to line_mid
+
+    angle = math.radians(angle_deg)
+    c = math.cos(angle)
+    s = math.sin(angle)
+
+    # Rotate X/Z around Y
+    x_rot = adsk.core.Vector3D.create(
+        x_base.x * c + z_base.x * s,
+        x_base.y * c + z_base.y * s,
+        x_base.z * c + z_base.z * s
+    )
+    z_rot = adsk.core.Vector3D.create(
+        -x_base.x * s + z_base.x * c,
+        -x_base.y * s + z_base.y * c,
+        -x_base.z * s + z_base.z * c
+    )
+    x_rot.normalize()
+    z_rot.normalize()
+
+    # Set origin so hole centre line lies on the sketch line midpoint
+    origin = adsk.core.Point3D.create(
+        line_mid.x - x_rot.x * hole_g_u,
+        line_mid.y - x_rot.y * hole_g_u,
+        line_mid.z - x_rot.z * hole_g_u
+    )
+
+    m = adsk.core.Matrix3D.create()
+    m.setWithCoordinateSystem(origin, x_rot, y_axis, z_rot)
+    return m
+
+
+# ================================================================
+#  CREATE EA FOR ONE SELECTED SKETCH LINE
+# ================================================================
+def _create_ea_for_line(design, root, sk_line,
+                        ea_index,
+                        flange, thickness, extra,
+                        hole_d, hole_g, fillet_r,
+                        global_angle, lock_orientation):
+
+    um = design.unitsManager
+    sp = sk_line.startSketchPoint.worldGeometry
+    ep = sk_line.endSketchPoint.worldGeometry
+
+    cc_len = sp.distanceTo(ep)
+    if cc_len <= 0:
+        return False, global_angle, lock_orientation
+
+    # Midpoint of sketch line (world coords)
+    mid = adsk.core.Point3D.create(
+        (sp.x + ep.x) / 2,
+        (sp.y + ep.y) / 2,
+        (sp.z + ep.z) / 2
+    )
+
+    # Y-axis (EA length direction)
+    y_axis = adsk.core.Vector3D.create(ep.x - sp.x, ep.y - sp.y, ep.z - sp.z)
+    y_axis.normalize()
+
+    # Base X/Z (perpendicular frame)
+    temp = adsk.core.Vector3D.create(1, 0, 0)
+    if abs(temp.dotProduct(y_axis)) > 0.99:
+        temp = adsk.core.Vector3D.create(0, 1, 0)
+
+    x_base = y_axis.crossProduct(temp)
+    x_base.normalize()
+    z_base = x_base.crossProduct(y_axis)
+    z_base.normalize()
+
+    # Hole gauge (internal units)
+    hole_g_u = um.convert(hole_g, 'mm', um.internalUnits)
+
+    # Use locked angle or 0°
+    initial_angle = global_angle if (lock_orientation and global_angle is not None) else 0.0
+
+    # Build initial transform
+    mat = _create_orientation_matrix(mid, x_base, y_axis, z_base,
+                                     initial_angle, hole_g_u)
+    occ = root.occurrences.addNewComponent(mat)
+    comp = occ.component
+
+    # Name component
+    cc_mm = um.convert(cc_len, um.internalUnits, 'mm')
+    comp.name = (
+        f"EA{ea_index}-{int(round(cc_mm))}mm-"
+        f"{int(round(flange))}x{int(round(flange))}x{int(round(thickness))}"
+    )
+
+    # Build geometry
+    body = _build_ea_geometry(
+        design, comp, cc_len,
+        flange, thickness, extra,
+        hole_d, hole_g, fillet_r
+    )
+
+    _apply_steel_material(comp, body)
+    _apply_steel_color(body)
+
+    # Preview refresh
+    try:
+        _app.activeViewport.refresh()
+    except:
+        pass
+
+    # Auto-accept if using "Accept All"
+    if lock_orientation and global_angle is not None:
+        return True, global_angle, lock_orientation
+
+    # Otherwise interactive orientation
+    action, new_angle, new_lock = _interactive_orientation_for_occ(
+        occ, mid, x_base, y_axis, z_base,
+        hole_g_u, initial_angle
+    )
+
+    if action == 'accept':
+        return True, global_angle, lock_orientation
+
+    if action == 'accept_all':
+        global_angle = new_angle
+        lock_orientation = new_lock
+        return True, global_angle, lock_orientation
+
+    if action == 'skip':
+        occ.deleteMe()
+        try:
+            _app.activeViewport.refresh()
+        except:
+            pass
+        return False, global_angle, lock_orientation
+
+    # Abort
+    occ.deleteMe()
+    try:
+        _app.activeViewport.refresh()
+    except:
+        pass
+    return None, global_angle, lock_orientation
+
+
+# ================================================================
+#  INTERACTIVE ORIENTATION UI
+# ================================================================
+def _interactive_orientation_for_occ(occ, line_mid, x_base, y_axis, z_base,
+                                     hole_g_u, start_angle=0.0):
+
+    global _ui, _app
+    current_angle = start_angle % 360.0
+
+    while True:
+        (cmd, cancelled) = _ui.inputBox(
+            f"Orientation for {occ.component.name}\n\n"
+            f"Current orientation: {int(current_angle)}°\n\n"
+            "Options (case insensitive):\n"
+            "  R  = Rotate +90°\n"
+            "  A  = Accept\n"
+            "  AA = Accept & Apply to ALL remaining\n"
+            "  S  = Skip\n"
+            "  C  = Cancel Script\n",
+            "EA Orientation",
+            ""
+        )
+
+        if cancelled:
+            return 'abort', None, False
+
+        cmd = cmd.strip().lower()
+
+        # Accept All
+        if cmd == 'aa':
+            return 'accept_all', current_angle, True
+
+        # Accept
+        if cmd == 'a':
+            return 'accept', current_angle, False
+
+        # Skip
+        if cmd == 's':
+            return 'skip', None, False
+
+        # Cancel Script
+        if cmd == 'c':
+            return 'abort', None, False
+
+        # Rotate 90°
+        if cmd == 'r':
+            current_angle = (current_angle + 90) % 360.0
+            mat = _create_orientation_matrix(
+                line_mid, x_base, y_axis, z_base,
+                current_angle, hole_g_u
+            )
+            occ.transform = mat
+            try:
+                _app.activeViewport.refresh()
+            except:
+                pass
+            continue
+
+        _ui.messageBox("Please enter R, A, AA, S, or C.")
+
+
+# ================================================================
+#  GEOMETRY CREATION (EXTRUSIONS, HOLES, FILLET)
+# ================================================================
+def _build_ea_geometry(design, comp, cc_len,
+                       flange, thickness, extra,
+                       hole_d, hole_g, fillet_r):
+
+    um = design.unitsManager
+    sketches = comp.sketches
+    extrudes = comp.features.extrudeFeatures
+
+    flange_u = um.convert(flange, 'mm', um.internalUnits)
+    thk_u    = um.convert(thickness, 'mm', um.internalUnits)
+    extra_u  = um.convert(extra, 'mm', um.internalUnits)
+    hole_d_u = um.convert(hole_d, 'mm', um.internalUnits)
+    hole_g_u = um.convert(hole_g, 'mm', um.internalUnits)
+    fil_u    = um.convert(fillet_r, 'mm', um.internalUnits)
+
+    length_total = cc_len + 2 * extra_u
+
+    # ------------------ L-Section Sketch ------------------
+    xz = comp.xZConstructionPlane
+    sk = sketches.add(xz)
+    sl = sk.sketchCurves.sketchLines
+
+    A = adsk.core.Point3D.create(0,         0,        0)
+    B = adsk.core.Point3D.create(flange_u,  0,        0)
+    C = adsk.core.Point3D.create(flange_u,  thk_u,    0)
+    D = adsk.core.Point3D.create(thk_u,     thk_u,    0)
+    E = adsk.core.Point3D.create(thk_u,     flange_u, 0)
+    F = adsk.core.Point3D.create(0,         flange_u, 0)
+
+    sl.addByTwoPoints(A, B)
+    sl.addByTwoPoints(B, C)
+    sl.addByTwoPoints(C, D)
+    sl.addByTwoPoints(D, E)
+    sl.addByTwoPoints(E, F)
+    sl.addByTwoPoints(F, A)
+
+    prof = sk.profiles.item(0)
+
+    # ---------- Extrude L-profile symmetrically along Y ----------
+    ext_in = extrudes.createInput(
+        prof,
+        adsk.fusion.FeatureOperations.NewBodyFeatureOperation
+    )
+    ext_in.setSymmetricExtent(
+        adsk.core.ValueInput.createByReal(length_total),
+        True
+    )
+    ext = extrudes.add(ext_in)
+    body = ext.bodies.item(0)
+
+    # ---------- Apply Internal Fillet ----------
+    _apply_fillet(comp, body, thk_u, fil_u)
+
+    # ---------- Cut Holes Through the EA ----------
+    _cut_ea_holes(comp, body, cc_len, hole_d_u, hole_g_u, flange_u)
+
+    return body
+
+
+# ================================================================
+#  HOLE CREATION
+# ================================================================
+def _cut_ea_holes(comp, body, cc_len, hole_d_u, hole_g_u, flange_u):
+
+    sketches = comp.sketches
+    extrudes = comp.features.extrudeFeatures
+
+    xy = comp.xYConstructionPlane
+    sk = sketches.add(xy)
+    circ = sk.sketchCurves.sketchCircles
+
+    half = cc_len / 2
+    radius = hole_d_u / 2
+
+    circ.addByCenterRadius(adsk.core.Point3D.create(hole_g_u, -half, 0), radius)
+    circ.addByCenterRadius(adsk.core.Point3D.create(hole_g_u,  half, 0), radius)
+
+    pc = adsk.core.ObjectCollection.create()
+    for i in range(sk.profiles.count):
+        pc.add(sk.profiles.item(i))
+
+    cut_in = extrudes.createInput(
+        pc,
+        adsk.fusion.FeatureOperations.CutFeatureOperation
+    )
+    cut_in.participantBodies = [body]  # Limit cut to EA only
+
+    cut_in.setSymmetricExtent(
+        adsk.core.ValueInput.createByReal(flange_u * 2),
+        True
+    )
+    extrudes.add(cut_in)
+
+
+# ================================================================
+#  INTERNAL ROOT FILLET
+# ================================================================
+def _apply_fillet(comp, body, thk_u, rad_u):
+
+    fillets = comp.features.filletFeatures
+
+    target_x = thk_u
+    target_z = -thk_u
+    tol_pos = max(thk_u * 0.1, 0.0005)
+    tol_dir = 1e-6
+
+    # Identify closest vertex to the ideal inside corner
+    root_v = None
+    best = 1e9
+
+    for v in body.vertices:
+        p = v.geometry
+        d2 = (p.x - target_x) ** 2 + (p.z - target_z) ** 2
+        if d2 < best:
+            best = d2
+            root_v = v
+
+    if not root_v or best > tol_pos ** 2:
+        return
+
+    edges = adsk.core.ObjectCollection.create()
+    for e in root_v.edges:
+        sv = e.startVertex.geometry
+        ev = e.endVertex.geometry
+
+        vertical = (
+            abs(sv.x - ev.x) < tol_dir and
+            abs(sv.z - ev.z) < tol_dir and
+            abs(sv.y - ev.y) > tol_dir
+        )
+        corner = (
+            abs(sv.x - target_x) < tol_pos and
+            abs(sv.z - target_z) < tol_pos
+        )
+        if vertical and corner:
+            edges.add(e)
+
+    if edges.count == 0:
+        return
+
+    fi = fillets.createInput()
+    rad = adsk.core.ValueInput.createByReal(rad_u)
+
+    if hasattr(fi, 'edgeSets'):
+        fi.edgeSets.addConstantRadiusEdgeSet(edges, rad, True)
+    else:
+        fi.addConstantRadiusEdgeSet(edges, rad, True)
+
+    fillets.add(fi)
+
+
+# ================================================================
+#  MATERIAL + APPEARANCE
+# ================================================================
+def _apply_steel_material(comp, body):
+    try:
+        mats = _app.materialLibraries.itemByName("Fusion 360 Material Library")
+        steel = mats.materials.itemByName("Steel - Mild")
+        if steel:
+            body.material = steel
+    except:
+        pass
+
+
+def _apply_steel_color(body):
+    try:
+        design = adsk.fusion.Design.cast(_app.activeProduct)
+        apps = design.appearances
+
+        app = apps.itemByName("EA Steel Color")
+        if not app:
+            lib = _app.materialLibraries.item(0)
+            app = apps.addByColor(
+                "EA Steel Color",
+                lib,
+                adsk.core.Color.create(40, 60, 85)
+            )
+        body.appearance = app
+    except:
+        pass
