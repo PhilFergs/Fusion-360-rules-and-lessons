@@ -102,7 +102,7 @@ SESSION STARTER – FUSION 360 ADD-IN WORK
 
 Before generating ANY code in this session, load and strictly follow this ruleset:
 
-https://raw.githubusercontent.com/PhilFergs/Fusion-360-rules-and-lessons/main/Fusion360_AddIn_Rules_v1_0_0.md
+https://raw.githubusercontent.com/PhilFergs/Fusion-360-rules-and-lessons/main/Fusion360_AddIn_Rules_Latest.md
 
 Apply these instructions for the entire session:
 - Treat the rules file as the authoritative standard for Fusion 360 add-ins.
