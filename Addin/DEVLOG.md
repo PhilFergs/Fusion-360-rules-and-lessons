@@ -8,3 +8,4 @@ Ongoing development notes for the SteelMemberGeneration add-in.
 
 ## 2026-01-02
 - Added add-in scoped CHANGELOG.md, DEVLOG.md, and README.md for development tracking.
+- Added WORKFLOW.md capturing the workflow map and agreed rules.
