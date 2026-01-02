@@ -10,4 +10,5 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Added add-in scoped CHANGELOG.md, DEVLOG.md, and README.md for development tracking.
 - Added WORKFLOW.md capturing the workflow map and agreed rules.
 - Renamed the add-in to Phils Design Tools and updated IDs/paths.
+- Added logger usage across command handlers and startup/shutdown.
 

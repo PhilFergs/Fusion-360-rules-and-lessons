@@ -1,6 +1,7 @@
 import adsk.core, traceback
 import smg_context as ctx
 import smg_core as core
+import smg_logger as logger
 
 
 CMD_ID = "PhilsDesignTools_EA"
@@ -13,6 +14,7 @@ class EACommandExecuteHandler(adsk.core.CommandEventHandler):
         try:
             _execute(args)
         except:
+            logger.log("EA command failed:\n" + traceback.format_exc())
             ctx.ui().messageBox("EA command failed:\n" + traceback.format_exc())
 
 
@@ -72,6 +74,7 @@ class EACommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             ctx.add_handler(on_changed)
 
         except:
+            logger.log("EA CommandCreated failed:\n" + traceback.format_exc())
             ctx.ui().messageBox("EA CommandCreated failed:\n" + traceback.format_exc())
 
 

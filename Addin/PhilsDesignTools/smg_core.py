@@ -1,4 +1,4 @@
-import adsk.core, adsk.fusion, math, traceback
+import adsk.core, adsk.fusion, math
 import smg_context as ctx
 
 # Defaults (mm)

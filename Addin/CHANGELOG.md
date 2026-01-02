@@ -9,4 +9,6 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - WORKFLOW.md with the end-to-end workflow, automation plan, and naming rules.
 ### Changed
 - Renamed the add-in to Phils Design Tools and updated file paths and IDs.
+- Added logging calls across commands and startup/shutdown for debugging.
+- Normalized UI strings to ASCII-only text.
 

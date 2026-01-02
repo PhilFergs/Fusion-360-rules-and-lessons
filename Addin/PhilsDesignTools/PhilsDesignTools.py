@@ -24,12 +24,12 @@ def run(context):
 
         # Import internal modules only after sys.path is patched.
         import smg_context as ctx
-        import smg_core as core_mod
         import smg_ea as ea_mod
         import smg_shs as shs_mod
         import smg_rhs as rhs_mod
         import smg_rotate as rot_mod
         import smg_rename as rename_mod
+        import smg_logger as logger
 
         # Initialise shared context (app, ui, handler store, etc.).
         if hasattr(ctx, "init"):
@@ -51,6 +51,8 @@ def run(context):
             ui.messageBox("SolidModifyPanel not found.")
             return
 
+        logger.log("PhilsDesignTools started.")
+
         # Register generation commands on Create panel.
         ea_mod.register(ui, create_panel)
         shs_mod.register(ui, create_panel)
@@ -61,6 +63,10 @@ def run(context):
         rename_mod.register(ui, modify_panel)
 
     except:
+        try:
+            logger.log("PhilsDesignTools run error:\n" + traceback.format_exc())
+        except:
+            pass
         ui.messageBox("PhilsDesignTools run error:\n" + traceback.format_exc())
 
 
@@ -96,6 +102,13 @@ def stop(context):
             if cmd_def:
                 cmd_def.deleteMe()
 
+        import smg_logger as logger
+        logger.log("PhilsDesignTools stopped.")
     except:
+        try:
+            import smg_logger as logger
+            logger.log("PhilsDesignTools stop error:\n" + traceback.format_exc())
+        except:
+            pass
         ui.messageBox("PhilsDesignTools stop error:\n" + traceback.format_exc())
 

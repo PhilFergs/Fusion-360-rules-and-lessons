@@ -4,6 +4,7 @@ import traceback
 import re
 
 import smg_context as ctx
+import smg_logger as logger
 
 CMD_ID = "PhilsDesignTools_EA_BatchRename"
 CMD_NAME = "EA Batch Rename"
@@ -27,7 +28,7 @@ class RenameCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 "Members",
                 "Select steel member occurrences to rename"
             )
-            # Only allow occurrences – no sketches, faces, edges, etc.
+            # Only allow occurrences - no sketches, faces, edges, etc.
             sel_input.addSelectionFilter("Occurrences")
             sel_input.setSelectionLimits(1, 0)  # At least 1, unlimited max.
 
@@ -57,6 +58,9 @@ class RenameCreatedHandler(adsk.core.CommandCreatedEventHandler):
             ctx.add_handler(on_execute)
 
         except:
+            logger.log(
+                "Error in EA Batch Rename CommandCreated:\n" + traceback.format_exc()
+            )
             ctx.ui().messageBox(
                 "Error in EA Batch Rename CommandCreated:\n" + traceback.format_exc()
             )
@@ -140,7 +144,7 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
             if max_existing is not None and max_existing >= start_index:
                 effective_start = max_existing + 1
                 note_line = (
-                    f"Existing {prefix} indices up to {max_existing} found – "
+                    f"Existing {prefix} indices up to {max_existing} found - "
                     f"starting from {effective_start} instead of {start_index}."
                 )
 
@@ -217,6 +221,9 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
             ui.messageBox(summary, CMD_NAME)
 
         except:
+            logger.log(
+                "Error in EA Batch Rename Execute:\n" + traceback.format_exc()
+            )
             ctx.ui().messageBox(
                 "Error in EA Batch Rename Execute:\n" + traceback.format_exc()
             )
@@ -244,7 +251,7 @@ def _get_active_design():
 def _resolve_occurrence_from_entity(entity, design: adsk.fusion.Design):
     """
     Resolve an occurrence from whatever Fusion hands us.
-    Must NOT throw – return None if we can't resolve a clean occurrence.
+    Must NOT throw - return None if we can't resolve a clean occurrence.
     """
     if not entity or not design:
         return None
@@ -430,4 +437,6 @@ def register(ui: adsk.core.UserInterface, modify_panel: adsk.core.ToolbarPanel):
         ctrl = modify_panel.controls.addCommand(cmd_def, CMD_ID)
         ctrl.isPromoted = True
         ctrl.isPromotedByDefault = True
+
+
 

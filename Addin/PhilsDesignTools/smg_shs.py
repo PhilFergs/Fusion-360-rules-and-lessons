@@ -1,6 +1,7 @@
 import adsk.core, traceback
 import smg_context as ctx
 import smg_core as core
+import smg_logger as logger
 
 CMD_ID = "PhilsDesignTools_SHS"
 CMD_NAME = "SHS From Lines"
@@ -12,6 +13,7 @@ class SHSCommandExecuteHandler(adsk.core.CommandEventHandler):
         try:
             _execute(args)
         except:
+            logger.log("SHS command failed:\n" + traceback.format_exc())
             ctx.ui().messageBox("SHS command failed:\n" + traceback.format_exc())
 
 
@@ -49,6 +51,7 @@ class SHSCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd.execute.add(on_execute)
             ctx.add_handler(on_execute)
         except:
+            logger.log("SHS CommandCreated failed:\n" + traceback.format_exc())
             ctx.ui().messageBox("SHS CommandCreated failed:\n" + traceback.format_exc())
 
 

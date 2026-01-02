@@ -1,5 +1,6 @@
 import adsk.core, adsk.fusion, traceback, math
 import smg_context as ctx
+import smg_logger as logger
 
 
 CMD_ID = "PhilsDesignTools_Rotate"
@@ -12,6 +13,7 @@ class RotateExecuteHandler(adsk.core.CommandEventHandler):
         try:
             _execute(args)
         except:
+            logger.log("Rotate failed:\n" + traceback.format_exc())
             ctx.ui().messageBox("Rotate failed:\n" + traceback.format_exc())
 
 
@@ -34,14 +36,15 @@ class RotateCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 "Rotation",
                 adsk.core.DropDownStyles.TextListDropDownStyle
             )
-            dd.listItems.add("90°", True)
-            dd.listItems.add("-90°", False)
+            dd.listItems.add("90", True)
+            dd.listItems.add("-90", False)
 
             on_exec = RotateExecuteHandler()
             cmd.execute.add(on_exec)
             ctx.add_handler(on_exec)
 
         except:
+            logger.log("Rotate UI failed:\n" + traceback.format_exc())
             ctx.ui().messageBox("Rotate UI failed:\n" + traceback.format_exc())
 
 
@@ -132,7 +135,7 @@ def _execute(args):
 
     dd = adsk.core.DropDownCommandInput.cast(inputs.itemById("rot_angle"))
     # FIX: ListItem has .name, not .text
-    angle_name = dd.selectedItem.name if dd and dd.selectedItem else "90°"
+    angle_name = dd.selectedItem.name if dd and dd.selectedItem else "90"
     angle_sign = -1.0 if angle_name.startswith("-") else 1.0
     angle_rad = angle_sign * math.radians(90.0)
 
