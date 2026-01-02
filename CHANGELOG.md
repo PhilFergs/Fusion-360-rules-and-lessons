@@ -4,6 +4,11 @@ All notable changes to the Fusion 360 Add-In Rules & Best Practices document wil
 
 ---
 
+## Unreleased
+### Added
+- DEVLOG.md for ongoing development notes and change tracking.
+
+
 ## v1.0.0 — Initial Release
 ### Added
 - Full ruleset gathered from all Fusion 360 EA Script project sessions.
