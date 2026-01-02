@@ -61,7 +61,7 @@ def run(context):
         rename_mod.register(ui, modify_panel)
 
     except:
-        ui.messageBox("SteelMemberGeneration run error:\n" + traceback.format_exc())
+        ui.messageBox("PhilsDesignTools run error:\n" + traceback.format_exc())
 
 
 def stop(context):
@@ -72,11 +72,11 @@ def stop(context):
         ws = ui.workspaces.itemById("FusionSolidEnvironment")
 
         cmd_ids = [
-            "SteelMemberGeneration_EA",
-            "SteelMemberGeneration_SHS",
-            "SteelMemberGeneration_RHS",
-            "SteelMemberGeneration_Rotate",
-            "SteelMemberGeneration_EA_BatchRename",
+            "PhilsDesignTools_EA",
+            "PhilsDesignTools_SHS",
+            "PhilsDesignTools_RHS",
+            "PhilsDesignTools_Rotate",
+            "PhilsDesignTools_EA_BatchRename",
         ]
 
         panel_ids = ["SolidCreatePanel", "SolidModifyPanel"]
@@ -97,4 +97,5 @@ def stop(context):
                 cmd_def.deleteMe()
 
     except:
-        ui.messageBox("SteelMemberGeneration stop error:\n" + traceback.format_exc())
+        ui.messageBox("PhilsDesignTools stop error:\n" + traceback.format_exc())
+

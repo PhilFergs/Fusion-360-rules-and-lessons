@@ -11,11 +11,11 @@ def _log_dir():
 
 
 def _log_path():
-    return os.path.join(_log_dir(), "SteelMemberGeneration.log")
+    return os.path.join(_log_dir(), "PhilsDesignTools.log")
 
 
 def log(message: str):
-    """Append a timestamped line to SteelMemberGeneration.log."""
+    """Append a timestamped line to PhilsDesignTools.log."""
     try:
         path = _log_path()
         ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -24,3 +24,4 @@ def log(message: str):
     except Exception:
         # Never let logging crash the add-in
         pass
+

@@ -1,4 +1,4 @@
-# SteelMemberGeneration workflow guide
+# Phils Design Tools workflow guide
 
 This document captures the current workflow and the planned automation steps
 for moving from wireframe to fabrication-ready steel models.
@@ -73,3 +73,4 @@ TypeWithIndex examples:
 - `CA1` = column arm
 - `EAH1` = horizontal EA
 - `EAB1` = brace EA
+

@@ -670,3 +670,4 @@ def _apply_steel_color(body):
         body.appearance = app
     except:
         pass
+

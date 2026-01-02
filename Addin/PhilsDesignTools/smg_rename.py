@@ -5,7 +5,7 @@ import re
 
 import smg_context as ctx
 
-CMD_ID = "SteelMemberGeneration_EA_BatchRename"
+CMD_ID = "PhilsDesignTools_EA_BatchRename"
 CMD_NAME = "EA Batch Rename"
 CMD_TOOLTIP = "Rename EA/steel members by selection order with length-based naming."
 
@@ -430,3 +430,4 @@ def register(ui: adsk.core.UserInterface, modify_panel: adsk.core.ToolbarPanel):
         ctrl = modify_panel.controls.addCommand(cmd_def, CMD_ID)
         ctrl.isPromoted = True
         ctrl.isPromotedByDefault = True
+

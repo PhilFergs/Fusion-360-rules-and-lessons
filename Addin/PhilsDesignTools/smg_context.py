@@ -28,3 +28,4 @@ def handlers():
 def add_handler(h):
     if h is not None:
         _handlers.append(h)
+

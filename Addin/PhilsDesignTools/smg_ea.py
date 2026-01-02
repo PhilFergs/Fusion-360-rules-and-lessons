@@ -3,7 +3,7 @@ import smg_context as ctx
 import smg_core as core
 
 
-CMD_ID = "SteelMemberGeneration_EA"
+CMD_ID = "PhilsDesignTools_EA"
 CMD_NAME = "EA From Lines"
 CMD_TOOLTIP = "Generate EA members from sketch lines."
 
@@ -122,3 +122,4 @@ def register(ui, panel):
         ctrl = panel.controls.addCommand(cmd_def)
         ctrl.isPromoted = True
         ctrl.isPromotedByDefault = True
+

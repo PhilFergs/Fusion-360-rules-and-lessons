@@ -1,7 +1,7 @@
 {
   "autodeskProduct": "fusion360",
   "type": "addin",
-  "id": "SteelMemberGeneration",
+  "id": "PhilsDesignTools",
   "author": "Phil Fergs",
   "description": {
     "en-US": "Generate EA, SHS and RHS members from sketch lines"
@@ -10,5 +10,5 @@
   "runOnStartup": true,
   "supportedOS": "windows|mac",
   "engine": "CPython",
-  "entry": "SteelMemberGeneration.py"
+  "entry": "PhilsDesignTools.py"
 }

@@ -2,7 +2,7 @@ import adsk.core, adsk.fusion, traceback, math
 import smg_context as ctx
 
 
-CMD_ID = "SteelMemberGeneration_Rotate"
+CMD_ID = "PhilsDesignTools_Rotate"
 CMD_NAME = "Rotate Steel Member"
 CMD_TOOLTIP = "Rotate selected steel members."
 
@@ -195,3 +195,4 @@ def register(ui, panel):
         ctrl = panel.controls.addCommand(cmd_def)
         ctrl.isPromoted = True
         ctrl.isPromotedByDefault = True
+
