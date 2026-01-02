@@ -1,5 +1,4 @@
 import adsk.core
-import adsk.fusion
 import traceback
 import os
 import sys

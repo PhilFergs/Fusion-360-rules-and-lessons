@@ -74,3 +74,9 @@ TypeWithIndex examples:
 - `EAH1` = horizontal EA
 - `EAB1` = brace EA
 
+## Versioning and deployment
+1. Update `CHANGELOG.md` (user-facing) and `DEVLOG.md` (internal notes).
+2. Add a dated entry to `VERSION_LOG.md` for each upload.
+3. Deploy via `tools/deploy_addin.ps1` to back up the previous add-in folder
+   before overwriting the active Fusion add-ins copy.
+

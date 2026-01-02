@@ -1,5 +1,3 @@
-import adsk.core
-
 _app = None
 _ui = None
 _handlers = []  # keep references alive
