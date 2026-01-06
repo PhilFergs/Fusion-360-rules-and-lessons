@@ -1,4 +1,4 @@
-import adsk.core, traceback
+import adsk.core, traceback, os
 import smg_context as ctx
 import smg_core as core
 import smg_logger as logger
@@ -6,6 +6,7 @@ import smg_logger as logger
 CMD_ID = "PhilsDesignTools_RHS"
 CMD_NAME = "RHS From Lines"
 CMD_TOOLTIP = "Generate RHS members from sketch lines."
+RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 
 
 class RHSCommandExecuteHandler(adsk.core.CommandEventHandler):
@@ -80,6 +81,18 @@ def _execute(args):
     angle_dd = adsk.core.DropDownCommandInput.cast(inputs.itemById('rhs_angle'))
     angle = float(angle_dd.selectedItem.name) if angle_dd and angle_dd.selectedItem else 0.0
 
+    logger.log_command(
+        CMD_NAME,
+        {
+            "lines": len(lines),
+            "width_mm": width,
+            "depth_mm": depth,
+            "thickness_mm": thickness,
+            "extra_mm": extra,
+            "angle_deg": angle,
+        },
+    )
+
     core.generate_rhs_from_lines(
         lines,
         width, depth, thickness, extra,
@@ -90,7 +103,9 @@ def _execute(args):
 def register(ui, panel):
     cmd_def = ui.commandDefinitions.itemById(CMD_ID)
     if not cmd_def:
-        cmd_def = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, CMD_TOOLTIP)
+        cmd_def = ui.commandDefinitions.addButtonDefinition(
+            CMD_ID, CMD_NAME, CMD_TOOLTIP, RESOURCE_FOLDER
+        )
 
     created_handler = RHSCommandCreatedHandler()
     cmd_def.commandCreated.add(created_handler)
@@ -100,4 +115,3 @@ def register(ui, panel):
         ctrl = panel.controls.addCommand(cmd_def)
         ctrl.isPromoted = True
         ctrl.isPromotedByDefault = True
-

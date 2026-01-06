@@ -28,6 +28,7 @@ def run(context):
         import smg_rhs as rhs_mod
         import smg_rotate as rot_mod
         import smg_rename as rename_mod
+        import smg_split as split_mod
         import smg_logger as logger
 
         # Initialise shared context (app, ui, handler store, etc.).
@@ -60,6 +61,7 @@ def run(context):
 
         # Register batch rename on Modify panel.
         rename_mod.register(ui, modify_panel)
+        split_mod.register(ui, modify_panel)
 
     except:
         try:
@@ -82,6 +84,9 @@ def stop(context):
             "PhilsDesignTools_RHS",
             "PhilsDesignTools_Rotate",
             "PhilsDesignTools_EA_BatchRename",
+            "PhilsDesignTools_SplitBody",
+            "PhilsDesignTools_SplitBody_V2",
+            "PhilsDesignTools_SplitBody_Delete",
         ]
 
         panel_ids = ["SolidCreatePanel", "SolidModifyPanel"]
@@ -110,4 +115,3 @@ def stop(context):
         except:
             pass
         ui.messageBox("PhilsDesignTools stop error:\n" + traceback.format_exc())
-

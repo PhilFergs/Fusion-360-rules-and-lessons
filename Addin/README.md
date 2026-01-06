@@ -13,9 +13,8 @@ This branch is scoped to the `Addin/` folder only.
 
 ## Commands
 - Create panel: EA From Lines, SHS From Lines, RHS From Lines, Rotate Steel Member
-- Modify panel: EA Batch Rename
+- Modify panel: Batch Rename, Split Body (Keep Side), Split Body Delete
 
 ## Development notes
 - Update `Addin/CHANGELOG.md` (user-facing) and `Addin/DEVLOG.md` (working notes) with each change set.
 - Keep cache/log files out of git; see `Addin/.gitignore`.
-

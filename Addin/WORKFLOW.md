@@ -79,4 +79,4 @@ TypeWithIndex examples:
 2. Add a dated entry to `VERSION_LOG.md` for each upload.
 3. Deploy via `tools/deploy_addin.ps1` to back up the previous add-in folder
    before overwriting the active Fusion add-ins copy.
-
+4. Optional: run `tools/watch_deploy.ps1` during development to auto-copy changes.

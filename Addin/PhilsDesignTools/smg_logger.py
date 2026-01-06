@@ -25,3 +25,24 @@ def log(message: str):
         # Never let logging crash the add-in
         pass
 
+
+def _format_details(details):
+    if not details:
+        return ""
+    if isinstance(details, str):
+        return details
+    try:
+        parts = []
+        for k, v in details.items():
+            parts.append(f"{k}={v}")
+        return ", ".join(parts)
+    except Exception:
+        return str(details)
+
+
+def log_command(cmd_name: str, details=None):
+    msg = cmd_name
+    detail_str = _format_details(details)
+    if detail_str:
+        msg += f": {detail_str}"
+    log(msg)

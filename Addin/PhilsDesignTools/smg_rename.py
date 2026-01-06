@@ -2,18 +2,24 @@ import adsk.core
 import adsk.fusion
 import traceback
 import re
+import os
 
 import smg_context as ctx
 import smg_logger as logger
 
 CMD_ID = "PhilsDesignTools_EA_BatchRename"
-CMD_NAME = "EA Batch Rename"
-CMD_TOOLTIP = "Rename EA/steel members by selection order with length-based naming."
+CMD_NAME = "Batch Rename"
+CMD_TOOLTIP = "Rename steel members by selection order with length-based naming."
+RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 
 SELECTION_INPUT_ID = "EA_BatchRename_Selection"
 PREFIX_INPUT_ID = "EA_BatchRename_Prefix"
 START_INDEX_INPUT_ID = "EA_BatchRename_StartIndex"
 SIZE_SUFFIX_INPUT_ID = "EA_BatchRename_SizeSuffix"
+
+_last_prefix = None
+_last_start_index = None
+_last_size_suffix = None
 
 
 class RenameCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -36,21 +42,21 @@ class RenameCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.addStringValueInput(
                 PREFIX_INPUT_ID,
                 "Name prefix",
-                "EA"
+                _last_prefix if _last_prefix else "EA"
             )
 
             # Starting index input.
-            inputs.addIntegerSpinnerCommandInput(
+            inputs.addStringValueInput(
                 START_INDEX_INPUT_ID,
                 "Starting index",
-                1, 1000000, 1, 1
+                _last_start_index if _last_start_index else "1"
             )
 
             # Size suffix input (section info).
             inputs.addStringValueInput(
                 SIZE_SUFFIX_INPUT_ID,
                 "Size suffix",
-                "50x50x3"
+                _last_size_suffix if _last_size_suffix else "50x50x3"
             )
 
             on_execute = RenameExecuteHandler()
@@ -85,7 +91,7 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
             prefix_input = adsk.core.StringValueCommandInput.cast(
                 inputs.itemById(PREFIX_INPUT_ID)
             )
-            start_index_input = adsk.core.IntegerSpinnerCommandInput.cast(
+            start_index_input = adsk.core.StringValueCommandInput.cast(
                 inputs.itemById(START_INDEX_INPUT_ID)
             )
             size_suffix_input = adsk.core.StringValueCommandInput.cast(
@@ -97,11 +103,24 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
             if prefix == "":
                 prefix = "EA"
 
-            start_index = start_index_input.value if start_index_input else 1
+            start_index_raw = (start_index_input.value or "").strip() if start_index_input else "1"
+            try:
+                start_index_val = float(start_index_raw)
+            except:
+                ui.messageBox("Starting index must be a number (e.g. 3 or 3.1).")
+                return
+            use_decimal = abs(start_index_val - round(start_index_val)) > 1e-6
+            step = 0.1 if use_decimal else 1.0
+            start_index = start_index_val
 
             raw_suffix = (size_suffix_input.value or "").strip()
             if raw_suffix == "":
                 raw_suffix = "50x50x3"
+
+            global _last_prefix, _last_start_index, _last_size_suffix
+            _last_prefix = prefix
+            _last_start_index = start_index_raw
+            _last_size_suffix = raw_suffix
 
             # Auto-normalise suffix based on prefix/type (EA compression 50x50x3 -> 50x3).
             size_suffix = _normalise_size_suffix(prefix, raw_suffix)
@@ -138,7 +157,7 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
                 return
 
             # Auto-bump start index based on existing names.
-            max_existing = _find_max_index_for_prefix(design, prefix)
+            max_existing = _find_max_index_for_prefix(design, prefix) if not use_decimal else None
             effective_start = start_index
             note_line = ""
             if max_existing is not None and max_existing >= start_index:
@@ -147,6 +166,18 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
                     f"Existing {prefix} indices up to {max_existing} found - "
                     f"starting from {effective_start} instead of {start_index}."
                 )
+
+            logger.log_command(
+                CMD_NAME,
+                {
+                    "members": len(occurrences),
+                    "prefix": prefix,
+                    "start_index": start_index_raw,
+                    "effective_start": effective_start,
+                    "size_suffix": size_suffix,
+                    "step": step,
+                },
+            )
 
             # Rename in selection order.
             log_lines = []
@@ -164,7 +195,11 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
                     length_label = f"{int(round(length_mm))}"
 
                 # Build final name.
-                new_name = f"{prefix}{current_index}-{length_label}mm-{size_suffix}"
+                if use_decimal:
+                    idx_label = f"{current_index:.1f}"
+                else:
+                    idx_label = f"{int(round(current_index))}"
+                new_name = f"{prefix}{idx_label}-{length_label}mm-{size_suffix}"
 
                 renamed = False
                 old_label = ""
@@ -211,7 +246,7 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
                         f'ERROR renaming \"{safe_name}\" (index {current_index}): {ex}'
                     )
 
-                current_index += 1
+                current_index = round(current_index + step, 1) if use_decimal else current_index + 1
 
             summary = (
                 "EA Batch Rename results:\n\n" + "\n".join(log_lines)
@@ -426,7 +461,7 @@ def register(ui: adsk.core.UserInterface, modify_panel: adsk.core.ToolbarPanel):
             CMD_ID,
             CMD_NAME,
             CMD_TOOLTIP,
-            ""  # no custom icon for now
+            RESOURCE_FOLDER
         )
 
     created_handler = RenameCreatedHandler()
@@ -437,6 +472,3 @@ def register(ui: adsk.core.UserInterface, modify_panel: adsk.core.ToolbarPanel):
         ctrl = modify_panel.controls.addCommand(cmd_def, CMD_ID)
         ctrl.isPromoted = True
         ctrl.isPromotedByDefault = True
-
-
-

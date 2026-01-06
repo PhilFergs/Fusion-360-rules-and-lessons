@@ -1,4 +1,4 @@
-import adsk.core, adsk.fusion, traceback, math
+import adsk.core, adsk.fusion, traceback, math, os
 import smg_context as ctx
 import smg_logger as logger
 
@@ -7,6 +7,7 @@ CMD_ID = "PhilsDesignTools_Rotate"
 CMD_NAME = "Rotate Steel Member"
 CMD_TOOLTIP = "Rotate selected steel members."
 DEBUG_ROTATE = True
+RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 
 
 def _fmt_pt(p):
@@ -437,6 +438,14 @@ def _execute(args):
         ctx.ui().messageBox("Select at least one steel member occurrence.")
         return
 
+    logger.log_command(
+        CMD_NAME,
+        {
+            "members": sel.selectionCount,
+            "angle_deg": angle_sign * 90.0,
+        },
+    )
+
     if DEBUG_ROTATE:
         logger.log(f"Rotate: angle_deg={angle_sign * 90.0:.1f}, members={sel.selectionCount}")
 
@@ -485,7 +494,7 @@ def register(ui, panel):
     cmd_def = ui.commandDefinitions.itemById(CMD_ID)
     if not cmd_def:
         cmd_def = ui.commandDefinitions.addButtonDefinition(
-            CMD_ID, CMD_NAME, CMD_TOOLTIP
+            CMD_ID, CMD_NAME, CMD_TOOLTIP, RESOURCE_FOLDER
         )
 
     handler = RotateCreatedHandler()
@@ -496,4 +505,3 @@ def register(ui, panel):
         ctrl = panel.controls.addCommand(cmd_def)
         ctrl.isPromoted = True
         ctrl.isPromotedByDefault = True
-

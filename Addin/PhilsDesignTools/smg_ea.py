@@ -1,4 +1,4 @@
-import adsk.core, traceback
+import adsk.core, traceback, os
 import smg_context as ctx
 import smg_core as core
 import smg_logger as logger
@@ -7,6 +7,7 @@ import smg_logger as logger
 CMD_ID = "PhilsDesignTools_EA"
 CMD_NAME = "EA From Lines"
 CMD_TOOLTIP = "Generate EA members from sketch lines."
+RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 
 
 class EACommandExecuteHandler(adsk.core.CommandEventHandler):
@@ -104,6 +105,20 @@ def _execute(args):
     angle_dd = adsk.core.DropDownCommandInput.cast(inputs.itemById('ea_angle'))
     angle = float(angle_dd.selectedItem.name) if angle_dd and angle_dd.selectedItem else 0.0
 
+    logger.log_command(
+        CMD_NAME,
+        {
+            "lines": len(lines),
+            "flange_mm": flange,
+            "thickness_mm": thickness,
+            "extra_mm": extra,
+            "hole_d_mm": hole_d,
+            "hole_g_mm": hole_g,
+            "fillet_mm": fillet,
+            "angle_deg": angle,
+        },
+    )
+
     core.generate_ea_from_lines(
         lines,
         flange, thickness, extra,
@@ -115,7 +130,9 @@ def _execute(args):
 def register(ui, panel):
     cmd_def = ui.commandDefinitions.itemById(CMD_ID)
     if not cmd_def:
-        cmd_def = ui.commandDefinitions.addButtonDefinition(CMD_ID, CMD_NAME, CMD_TOOLTIP)
+        cmd_def = ui.commandDefinitions.addButtonDefinition(
+            CMD_ID, CMD_NAME, CMD_TOOLTIP, RESOURCE_FOLDER
+        )
 
     created_handler = EACommandCreatedHandler()
     cmd_def.commandCreated.add(created_handler)
@@ -125,4 +142,3 @@ def register(ui, panel):
         ctrl = panel.controls.addCommand(cmd_def)
         ctrl.isPromoted = True
         ctrl.isPromotedByDefault = True
-

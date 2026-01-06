@@ -18,3 +18,12 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Added `VERSION_LOG.md` and `tools/deploy_addin.ps1` to log uploads and back up the active add-in before deployment.
 - Documented versioning and deployment steps in WORKFLOW.md.
 
+## 2026-01-06
+- Added Split Body (Keep Side) command with post-split keep selection (positive, negative, or all).
+- Added auto-deploy watcher script and optional no-backup deploy flag for faster iteration.
+- Logged usage details for all existing commands via smg_logger.log_command.
+- Exposed Extend split tool option and added guardrails for split failures.
+- Reworked Split Body delete flow to use a follow-up command and improved implicit split detection.
+- Added Split Body Delete as a standalone Modify command.
+- Added Fusion-style icons for all command buttons.
+- Renamed EA Batch Rename to Batch Rename.

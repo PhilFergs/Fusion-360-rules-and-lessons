@@ -11,11 +11,18 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - USER_GUIDE.docx for a Word-native version of the user guide.
 - VERSION_LOG.md to track uploaded versions.
 - tools/deploy_addin.ps1 to back up the active add-in before deployment.
+- Split Body (Keep Side) command to split a body and keep the chosen side or all.
+- tools/watch_deploy.ps1 to auto-copy add-in changes into the Fusion AddIns folder.
+- Split Body Delete command as a standalone tool.
+- Renamed EA Batch Rename to Batch Rename.
+- Command icons for all tools to match Fusion-style menus.
 ### Changed
+- Added per-command usage logging across all existing commands.
+- Split Body now exposes Extend split tool and handles split failures gracefully.
+- Split Body delete now uses a follow-up command and improved implicit split detection.
 - Renamed the add-in to Phils Design Tools and updated file paths and IDs.
 - Added logging calls across commands and startup/shutdown for debugging.
 - Normalized UI strings to ASCII-only text.
 - Fixed EA rotate axis selection to use the outer hole face and closest-point axis, with added debug logging for axis/pivot values.
 - Removed unused imports and an unused rotate helper to reduce redundancy.
 - Documented versioning and deployment steps in WORKFLOW.md.
-
