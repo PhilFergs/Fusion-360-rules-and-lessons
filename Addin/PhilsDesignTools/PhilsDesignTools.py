@@ -29,6 +29,11 @@ def run(context):
         import smg_rotate as rot_mod
         import smg_rename as rename_mod
         import smg_split as split_mod
+        import smg_ea_hole_export as hole_export_mod
+        import smg_iges_export as iges_export_mod
+        import smg_component_set as component_set_mod
+        import smg_wireframe as wireframe_mod
+        import smg_holecut as holecut_mod
         import smg_logger as logger
 
         # Initialise shared context (app, ui, handler store, etc.).
@@ -41,27 +46,80 @@ def run(context):
             ui.messageBox("FusionSolidEnvironment workspace not found.")
             return
 
-        create_panel = ws.toolbarPanels.itemById("SolidCreatePanel")
-        if not create_panel:
-            ui.messageBox("SolidCreatePanel not found.")
-            return
+        solid_tab = ws.toolbarTabs.itemById("SolidTab")
+        if solid_tab:
+            create_panel = solid_tab.toolbarPanels.itemById("SolidCreatePanel")
+            modify_panel = solid_tab.toolbarPanels.itemById("SolidModifyPanel")
+        else:
+            create_panel = ws.toolbarPanels.itemById("SolidCreatePanel")
+            modify_panel = ws.toolbarPanels.itemById("SolidModifyPanel")
 
-        modify_panel = ws.toolbarPanels.itemById("SolidModifyPanel")
-        if not modify_panel:
-            ui.messageBox("SolidModifyPanel not found.")
+        panel_id = "PhilsDesignToolsPanel"
+        panel = None
+
+        # Remove any stale panel created outside the Solid tab.
+        try:
+            stale_panel = ws.toolbarPanels.itemById(panel_id)
+            if stale_panel:
+                stale_panel.deleteMe()
+        except:
+            pass
+
+        if solid_tab:
+            panel = solid_tab.toolbarPanels.itemById(panel_id)
+            if not panel:
+                panel = solid_tab.toolbarPanels.add(
+                    panel_id, "PhilsDesignTools", "SolidModifyPanel", False
+                )
+        else:
+            panel = ws.toolbarPanels.itemById(panel_id)
+            if not panel:
+                panel = ws.toolbarPanels.add(
+                    panel_id, "PhilsDesignTools", "SolidModifyPanel", False
+                )
+
+        if not panel:
+            ui.messageBox("PhilsDesignTools panel not found or created.")
             return
 
         logger.log("PhilsDesignTools started.")
 
-        # Register generation commands on Create panel.
-        ea_mod.register(ui, create_panel)
-        shs_mod.register(ui, create_panel)
-        rhs_mod.register(ui, create_panel)
-        rot_mod.register(ui, create_panel)
+        legacy_cmd_ids = [
+            "PhilsDesignTools_EA",
+            "PhilsDesignTools_SHS",
+            "PhilsDesignTools_RHS",
+            "PhilsDesignTools_Rotate",
+            "PhilsDesignTools_EA_BatchRename",
+            "PhilsDesignTools_SplitBody",
+            "PhilsDesignTools_SplitBody_V2",
+            "PhilsDesignTools_SplitBody_Delete",
+            "PhilsDesignTools_EA_HoleExport_CSV",
+            "PhilsDesignTools_IGES_Export",
+            "PhilsDesignTools_ComponentSet",
+            "PhilsDesignTools_WireframeFromBody",
+            "PhilsDesignTools_HoleCutFromFace",
+        ]
 
-        # Register batch rename on Modify panel.
-        rename_mod.register(ui, modify_panel)
-        split_mod.register(ui, modify_panel)
+        for legacy_panel in (create_panel, modify_panel):
+            if not legacy_panel:
+                continue
+            for cmd_id in legacy_cmd_ids:
+                ctrl = legacy_panel.controls.itemById(cmd_id)
+                if ctrl:
+                    ctrl.deleteMe()
+
+        # Register all commands on the PhilsDesignTools panel.
+        ea_mod.register(ui, panel)
+        shs_mod.register(ui, panel)
+        rhs_mod.register(ui, panel)
+        rot_mod.register(ui, panel)
+        rename_mod.register(ui, panel)
+        split_mod.register(ui, panel)
+        hole_export_mod.register(ui, panel)
+        iges_export_mod.register(ui, panel)
+        component_set_mod.register(ui, panel)
+        wireframe_mod.register(ui, panel)
+        holecut_mod.register(ui, panel)
 
     except:
         try:
@@ -87,17 +145,39 @@ def stop(context):
             "PhilsDesignTools_SplitBody",
             "PhilsDesignTools_SplitBody_V2",
             "PhilsDesignTools_SplitBody_Delete",
+            "PhilsDesignTools_EA_HoleExport_CSV",
+            "PhilsDesignTools_IGES_Export",
+            "PhilsDesignTools_ComponentSet",
+            "PhilsDesignTools_WireframeFromBody",
+            "PhilsDesignTools_HoleCutFromFace",
         ]
 
-        panel_ids = ["SolidCreatePanel", "SolidModifyPanel"]
-
         if ws:
-            for panel_id in panel_ids:
-                panel = ws.toolbarPanels.itemById(panel_id)
-                if not panel:
-                    continue
+            panel = None
+            solid_tab = ws.toolbarTabs.itemById("SolidTab")
+            if solid_tab:
+                panel = solid_tab.toolbarPanels.itemById("PhilsDesignToolsPanel")
+                if panel:
+                    for cmd_id in cmd_ids:
+                        ctrl = panel.controls.itemById(cmd_id)
+                        if ctrl:
+                            ctrl.deleteMe()
+                    panel.deleteMe()
+
+            panel = ws.toolbarPanels.itemById("PhilsDesignToolsPanel")
+            if panel:
                 for cmd_id in cmd_ids:
                     ctrl = panel.controls.itemById(cmd_id)
+                    if ctrl:
+                        ctrl.deleteMe()
+                panel.deleteMe()
+
+            for panel_id in ("SolidCreatePanel", "SolidModifyPanel"):
+                legacy_panel = ws.toolbarPanels.itemById(panel_id)
+                if not legacy_panel:
+                    continue
+                for cmd_id in cmd_ids:
+                    ctrl = legacy_panel.controls.itemById(cmd_id)
                     if ctrl:
                         ctrl.deleteMe()
 

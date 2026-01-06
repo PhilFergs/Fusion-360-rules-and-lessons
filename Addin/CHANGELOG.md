@@ -16,6 +16,12 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Split Body Delete command as a standalone tool.
 - Renamed EA Batch Rename to Batch Rename.
 - Command icons for all tools to match Fusion-style menus.
+- EA Hole Export CSV command (from scripts) for hole location exports.
+- IGES Component Export command (from scripts) for leaf component exports.
+- New Component Set command (from scripts) for batch component creation.
+- Wireframe From Body command (from scripts) for centreline sketch creation.
+- Hole Cut From Face command (from EA_HoleCut_AddIn).
+- Dedicated PhilsDesignTools toolbar panel for all commands.
 ### Changed
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.

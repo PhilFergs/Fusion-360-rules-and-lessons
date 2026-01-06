@@ -6,3 +6,7 @@ the previous add-in folder before overwriting files in the Fusion add-ins path.
 ## 2026-01-02 17:05
 - Branch: PhilsDesignTools
 - Summary: EA rotate axis fix (outer hole face), debug logging, cleanup of unused imports/helper.
+
+## 2026-01-06 20:48
+- Branch: PhilsDesignTools
+- Summary: Added new commands (EA hole CSV, IGES export, component set, wireframe, hole cut) and moved tools to a dedicated panel.
