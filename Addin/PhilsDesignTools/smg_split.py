@@ -32,6 +32,9 @@ class SplitCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd = args.command
             inputs = cmd.commandInputs
 
+            if inputs.itemById("split_body"):
+                return
+
             body_sel = inputs.addSelectionInput(
                 "split_body",
                 "Body",
@@ -88,6 +91,9 @@ class SplitDeleteCreatedHandler(adsk.core.CommandCreatedEventHandler):
         try:
             cmd = args.command
             inputs = cmd.commandInputs
+
+            if inputs.itemById("split_delete_body"):
+                return
 
             sel = inputs.addSelectionInput(
                 "split_delete_body",

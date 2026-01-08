@@ -28,6 +28,9 @@ class RenameCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd = args.command
             inputs = cmd.commandInputs
 
+            if inputs.itemById(SELECTION_INPUT_ID):
+                return
+
             # Selection input - user can select occurrences to rename.
             sel_input = inputs.addSelectionInput(
                 SELECTION_INPUT_ID,
@@ -156,16 +159,59 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
                 )
                 return
 
-            # Auto-bump start index based on existing names.
-            max_existing = _find_max_index_for_prefix(design, prefix) if not use_decimal else None
-            effective_start = start_index
-            note_line = ""
-            if max_existing is not None and max_existing >= start_index:
-                effective_start = max_existing + 1
-                note_line = (
-                    f"Existing {prefix} indices up to {max_existing} found - "
-                    f"starting from {effective_start} instead of {start_index}."
+            exclude_occ_tokens = set()
+            exclude_comp_tokens = set()
+            for occ in occurrences:
+                _add_entity_tokens(occ, exclude_occ_tokens)
+                try:
+                    comp = occ.component
+                    if comp:
+                        _add_entity_tokens(comp, exclude_comp_tokens)
+                except:
+                    pass
+
+            target_index_labels = _build_target_index_labels(
+                start_index,
+                step,
+                len(occurrences),
+                use_decimal,
+            )
+            target_index_set = set(target_index_labels)
+
+            conflicts = _collect_conflicts_for_target_indices(
+                design,
+                prefix,
+                target_index_set,
+                exclude_occ_tokens,
+                exclude_comp_tokens,
+            )
+            conflict_labels = _collect_conflict_labels(prefix, conflicts)
+            overwrite_conflicts = False
+
+            log_lines = []
+
+            if conflict_labels:
+                conflict_list = ", ".join(conflict_labels)
+                msg = (
+                    "Conflicting names found for the requested indices:\n\n"
+                    f"{conflict_list}\n\n"
+                    "Click Yes to overwrite (existing items will be renamed to "
+                    "\"needs rename 1\", \"needs rename 2\", ...).\n"
+                    "Click No to cancel."
                 )
+                result = ui.messageBox(
+                    msg,
+                    CMD_NAME,
+                    adsk.core.MessageBoxButtonTypes.YesNoButtonType,
+                    adsk.core.MessageBoxIconTypes.WarningIconType,
+                )
+                if result != adsk.core.DialogResults.DialogYes:
+                    return
+                overwrite_conflicts = True
+                log_lines.append("Overwrote existing names: " + conflict_list)
+                used_names = _collect_existing_names(design)
+                _apply_conflict_overwrite(conflicts, used_names, log_lines)
+                log_lines.append("")
 
             logger.log_command(
                 CMD_NAME,
@@ -173,19 +219,15 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
                     "members": len(occurrences),
                     "prefix": prefix,
                     "start_index": start_index_raw,
-                    "effective_start": effective_start,
                     "size_suffix": size_suffix,
                     "step": step,
+                    "conflicts": conflict_labels,
+                    "overwrite": overwrite_conflicts,
                 },
             )
 
             # Rename in selection order.
-            log_lines = []
-            if note_line:
-                log_lines.append(note_line)
-                log_lines.append("")
-
-            current_index = effective_start
+            current_index = start_index
 
             for occ in occurrences:
                 length_mm = _compute_length_mm_longest_edge(occ, units_mgr)
@@ -371,7 +413,238 @@ def _compute_length_mm_longest_edge(
         return None
 
 
-def _find_max_index_for_prefix(design: adsk.fusion.Design, prefix: str):
+def _build_target_index_labels(start_index, step, count, use_decimal):
+    labels = []
+    current = start_index
+    for _ in range(count):
+        if use_decimal:
+            labels.append(f"{current:.1f}")
+            current = round(current + step, 1)
+        else:
+            labels.append(f"{int(round(current))}")
+            current = current + step
+    return labels
+
+
+def _collect_conflicts_for_target_indices(
+    design: adsk.fusion.Design,
+    prefix: str,
+    target_index_set,
+    exclude_occ_tokens=None,
+    exclude_comp_tokens=None,
+):
+    conflicts = []
+    if not design or not prefix or not target_index_set:
+        return conflicts
+
+    pattern = re.compile(
+        r"^" + re.escape(prefix) + r"(\d+(?:\.\d+)?)\b",
+        re.IGNORECASE,
+    )
+
+    # Components
+    try:
+        for comp in design.allComponents:
+            token = _safe_entity_token(comp)
+            if exclude_comp_tokens and token in exclude_comp_tokens:
+                continue
+            try:
+                native = comp.nativeObject
+            except:
+                native = None
+            if native:
+                native_token = _safe_entity_token(native)
+                if exclude_comp_tokens and native_token in exclude_comp_tokens:
+                    continue
+            name = comp.name or ""
+            m = pattern.match(name)
+            if not m:
+                continue
+            idx_label = m.group(1)
+            if idx_label in target_index_set:
+                conflicts.append({
+                    "kind": "component",
+                    "entity": comp,
+                    "name": name,
+                    "idx_label": idx_label,
+                })
+    except:
+        pass
+
+    # Occurrences
+    try:
+        for occ in design.rootComponent.allOccurrences:
+            token = _safe_entity_token(occ)
+            if exclude_occ_tokens and token in exclude_occ_tokens:
+                continue
+            try:
+                native = occ.nativeObject
+            except:
+                native = None
+            if native:
+                native_token = _safe_entity_token(native)
+                if exclude_occ_tokens and native_token in exclude_occ_tokens:
+                    continue
+            name = occ.name or ""
+            m = pattern.match(name)
+            if not m:
+                continue
+            idx_label = m.group(1)
+            if idx_label in target_index_set:
+                conflicts.append({
+                    "kind": "occurrence",
+                    "entity": occ,
+                    "name": name,
+                    "idx_label": idx_label,
+                })
+    except:
+        pass
+
+    return conflicts
+
+
+def _collect_conflict_labels(prefix: str, conflicts):
+    idx_labels = set()
+    for item in conflicts:
+        idx = item.get("idx_label")
+        if idx:
+            idx_labels.add(idx)
+
+    def sort_key(val):
+        try:
+            return float(val)
+        except:
+            return val
+
+    return [f"{prefix}{idx}" for idx in sorted(idx_labels, key=sort_key)]
+
+
+def _collect_existing_names(design: adsk.fusion.Design):
+    names = set()
+    if not design:
+        return names
+    try:
+        for comp in design.allComponents:
+            if comp.name:
+                names.add(comp.name)
+    except:
+        pass
+    try:
+        for occ in design.rootComponent.allOccurrences:
+            if occ.name:
+                names.add(occ.name)
+    except:
+        pass
+    return names
+
+
+def _safe_entity_token(entity):
+    try:
+        return entity.entityToken
+    except:
+        return None
+
+
+def _add_entity_tokens(entity, token_set):
+    if not entity:
+        return
+    token = _safe_entity_token(entity)
+    if token:
+        token_set.add(token)
+    try:
+        native = entity.nativeObject
+    except:
+        native = None
+    if native:
+        native_token = _safe_entity_token(native)
+        if native_token:
+            token_set.add(native_token)
+
+
+def _safe_name(entity):
+    try:
+        return entity.name or ""
+    except:
+        return ""
+
+
+def _next_needs_rename_label(used_names, counter):
+    while True:
+        label = f"needs rename {counter}"
+        if label not in used_names:
+            used_names.add(label)
+            return label, counter + 1
+        counter += 1
+
+
+def _apply_conflict_overwrite(conflicts, used_names, log_lines):
+    counter = 1
+    comp_new_names = {}
+    comp_entities = {}
+
+    for item in conflicts:
+        if item.get("kind") != "component":
+            continue
+        comp = item.get("entity")
+        token = _safe_entity_token(comp)
+        if not token or token in comp_new_names:
+            continue
+        new_name, counter = _next_needs_rename_label(used_names, counter)
+        comp_new_names[token] = new_name
+        comp_entities[token] = comp
+
+    occ_new_names = {}
+    occ_entities = {}
+
+    for item in conflicts:
+        if item.get("kind") != "occurrence":
+            continue
+        occ = item.get("entity")
+        token = _safe_entity_token(occ)
+        if not token or token in occ_new_names:
+            continue
+
+        comp = None
+        try:
+            comp = occ.component
+        except:
+            comp = None
+        comp_token = _safe_entity_token(comp) if comp else None
+
+        if comp_token and comp_token in comp_new_names:
+            new_name = comp_new_names[comp_token]
+        else:
+            new_name, counter = _next_needs_rename_label(used_names, counter)
+
+        occ_new_names[token] = new_name
+        occ_entities[token] = occ
+
+    for token, comp in comp_entities.items():
+        new_name = comp_new_names[token]
+        old_name = _safe_name(comp)
+        try:
+            comp.name = new_name
+            _rename_component_bodies(comp, new_name)
+            log_lines.append(f'{old_name}  ->  {new_name}  (component)')
+        except Exception as ex:
+            log_lines.append(f'FAILED to rename component "{old_name}": {ex}')
+
+    for token, occ in occ_entities.items():
+        new_name = occ_new_names[token]
+        old_name = _safe_name(occ)
+        try:
+            occ.name = new_name
+            log_lines.append(f'{old_name}  ->  {new_name}  (occurrence)')
+        except Exception as ex:
+            log_lines.append(f'FAILED to rename occurrence "{old_name}": {ex}')
+
+
+def _find_max_index_for_prefix(
+    design: adsk.fusion.Design,
+    prefix: str,
+    exclude_occ_tokens=None,
+    exclude_comp_tokens=None,
+):
     if not design or not prefix:
         return None
 
@@ -381,6 +654,12 @@ def _find_max_index_for_prefix(design: adsk.fusion.Design, prefix: str):
     # Components
     try:
         for comp in design.allComponents:
+            try:
+                token = comp.entityToken
+            except:
+                token = None
+            if exclude_comp_tokens and token in exclude_comp_tokens:
+                continue
             name = comp.name or ""
             m = pattern.match(name)
             if m:
@@ -393,6 +672,12 @@ def _find_max_index_for_prefix(design: adsk.fusion.Design, prefix: str):
     # Occurrences
     try:
         for occ in design.rootComponent.allOccurrences:
+            try:
+                token = occ.entityToken
+            except:
+                token = None
+            if exclude_occ_tokens and token in exclude_occ_tokens:
+                continue
             name = occ.name or ""
             m = pattern.match(name)
             if m:

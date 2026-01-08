@@ -33,6 +33,9 @@ class RotateCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd = args.command
             inputs = cmd.commandInputs
 
+            if inputs.itemById("rot_members"):
+                return
+
             sel = inputs.addSelectionInput(
                 "rot_members",
                 "Members",

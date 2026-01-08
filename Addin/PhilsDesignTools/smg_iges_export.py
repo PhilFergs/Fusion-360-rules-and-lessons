@@ -118,6 +118,9 @@ class IGESExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd = args.command
             inputs = cmd.commandInputs
 
+            if inputs.itemById(SELECTION_INPUT_ID):
+                return
+
             sel = inputs.addSelectionInput(
                 SELECTION_INPUT_ID,
                 "Selection",

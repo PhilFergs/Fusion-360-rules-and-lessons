@@ -44,6 +44,10 @@ class EACommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd.isRepeatable = True
             inputs = cmd.commandInputs
 
+            # Avoid duplicate inputs if multiple handlers get attached.
+            if inputs.itemById('ea_selLines'):
+                return
+
             sel = inputs.addSelectionInput('ea_selLines', 'Lines', 'Select sketch lines for EA members')
             sel.addSelectionFilter('SketchLines')
             sel.setSelectionLimits(1, 0)

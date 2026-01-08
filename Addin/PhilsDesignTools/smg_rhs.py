@@ -29,6 +29,9 @@ class RHSCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd.isRepeatable = True
             inputs = cmd.commandInputs
 
+            if inputs.itemById('rhs_selLines'):
+                return
+
             sel = inputs.addSelectionInput('rhs_selLines', 'Lines', 'Select sketch lines for RHS members')
             sel.addSelectionFilter('SketchLines')
             sel.setSelectionLimits(1, 0)

@@ -34,6 +34,9 @@ class ComponentSetCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd = args.command
             inputs = cmd.commandInputs
 
+            if inputs.itemById(PREFIX_INPUT_ID):
+                return
+
             inputs.addStringValueInput(PREFIX_INPUT_ID, "Prefix", "SC")
             inputs.addStringValueInput(RANGE_INPUT_ID, "Number range", "1-18")
             inputs.addStringValueInput(SUFFIX_INPUT_ID, "Suffix", "-AS")

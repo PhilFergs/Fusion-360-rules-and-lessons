@@ -31,6 +31,9 @@ class HoleCutCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             cmd = args.command
             inputs = cmd.commandInputs
 
+            if inputs.itemById(HOLE_FACE_INPUT_ID):
+                return
+
             sel_hole = inputs.addSelectionInput(
                 HOLE_FACE_INPUT_ID,
                 "Hole Face",

@@ -100,9 +100,16 @@ def run(context):
             "PhilsDesignTools_HoleCutFromFace",
         ]
 
+        legacy_panels = []
         for legacy_panel in (create_panel, modify_panel):
-            if not legacy_panel:
-                continue
+            if legacy_panel:
+                legacy_panels.append(legacy_panel)
+        for panel_id in ("SolidCreatePanel", "SolidModifyPanel"):
+            legacy_panel = ws.toolbarPanels.itemById(panel_id)
+            if legacy_panel and legacy_panel not in legacy_panels:
+                legacy_panels.append(legacy_panel)
+
+        for legacy_panel in legacy_panels:
             for cmd_id in legacy_cmd_ids:
                 ctrl = legacy_panel.controls.itemById(cmd_id)
                 if ctrl:
@@ -172,10 +179,18 @@ def stop(context):
                         ctrl.deleteMe()
                 panel.deleteMe()
 
+            legacy_panels = []
+            if solid_tab:
+                for panel_id in ("SolidCreatePanel", "SolidModifyPanel"):
+                    legacy_panel = solid_tab.toolbarPanels.itemById(panel_id)
+                    if legacy_panel:
+                        legacy_panels.append(legacy_panel)
             for panel_id in ("SolidCreatePanel", "SolidModifyPanel"):
                 legacy_panel = ws.toolbarPanels.itemById(panel_id)
-                if not legacy_panel:
-                    continue
+                if legacy_panel and legacy_panel not in legacy_panels:
+                    legacy_panels.append(legacy_panel)
+
+            for legacy_panel in legacy_panels:
                 for cmd_id in cmd_ids:
                     ctrl = legacy_panel.controls.itemById(cmd_id)
                     if ctrl:
