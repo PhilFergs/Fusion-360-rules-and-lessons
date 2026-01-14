@@ -4,9 +4,9 @@ This repo uses a dedicated worktree so new commands can be built in isolation
 and still be backed up to Git.
 
 ## Folders and branches
-- Main repo: `C:\Users\phil9\OneDrive\Documents\Fusion-360-rules-and-lessons`
+- Main repo: `C:\Users\phil9\OneDrive\Documents\01 - Fusion 360 Code Development\Fusion-360-rules-and-lessons`
   - Branch: `main` (stable)
-- Development worktree: `C:\Users\phil9\OneDrive\Documents\InDevelopment`
+- Development worktree: `C:\Users\phil9\OneDrive\Documents\01 - Fusion 360 Code Development\InDevelopment`
   - Branch: `feature/in-development` (based on `origin/PhilsDesignTools`)
 
 ## Daily workflow
@@ -23,7 +23,7 @@ and still be backed up to Git.
   `git fetch --all --prune --tags`
   `git merge origin/PhilsDesignTools`
 - Remove the worktree (when finished):
-  `git worktree remove C:\Users\phil9\OneDrive\Documents\InDevelopment`
+  `git worktree remove C:\Users\phil9\OneDrive\Documents\01 - Fusion 360 Code Development\InDevelopment`
   `git branch -d feature/in-development`
 
 ## Notes
