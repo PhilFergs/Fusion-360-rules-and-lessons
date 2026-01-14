@@ -1,6 +1,6 @@
-# Phils Design Tools (development)
+# PhilsDesignTools
 
-This branch is scoped to the `Addin/` folder only.
+This folder contains the PhilsDesignTools Fusion 360 add-in.
 
 ## What it does
 - Generates EA, SHS, and RHS steel members from sketch lines.
