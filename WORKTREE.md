@@ -1,0 +1,31 @@
+# Worktree setup (local)
+
+This repo uses a dedicated worktree so new commands can be built in isolation
+and still be backed up to Git.
+
+## Folders and branches
+- Main repo: `C:\Users\phil9\OneDrive\Documents\Fusion-360-rules-and-lessons`
+  - Branch: `main` (stable)
+- Development worktree: `C:\Users\phil9\OneDrive\Documents\InDevelopment`
+  - Branch: `feature/in-development` (based on `origin/PhilsDesignTools`)
+
+## Daily workflow
+1. Open the `InDevelopment` folder in VS Code for new command work.
+2. Commit often and push the feature branch for backup.
+3. When ready, merge into `PhilsDesignTools` (or open a PR), then later update `main`.
+
+## Useful commands
+- List worktrees:
+  `git worktree list`
+- Push the feature branch:
+  `git push -u origin feature/in-development`
+- Update the worktree with latest `PhilsDesignTools`:
+  `git fetch --all --prune --tags`
+  `git merge origin/PhilsDesignTools`
+- Remove the worktree (when finished):
+  `git worktree remove C:\Users\phil9\OneDrive\Documents\InDevelopment`
+  `git branch -d feature/in-development`
+
+## Notes
+- Untracked/ignored local files are not shared between worktrees. Copy any
+  local-only folders (for example `Addin\_external`) if you need them there.
