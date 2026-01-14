@@ -4,9 +4,9 @@ This repo uses a dedicated worktree so new commands can be built in isolation
 and still be backed up to Git.
 
 ## Folders and branches
-- Main repo: wherever this repo is cloned on your machine (example: `C:\Users\phil9\Documents\02 - Fusion`)
+- Main repo: a subfolder inside the Fusion folder (example: `C:\Users\phil9\Documents\02 - Fusion\Fusion-360-rules-and-lessons`)
   - Branch: `main` (stable)
-- Development worktree: a subfolder inside the main repo (example: `C:\Users\phil9\Documents\02 - Fusion\InDevelopment`)
+- Development worktree: a sibling subfolder inside the Fusion folder (example: `C:\Users\phil9\Documents\02 - Fusion\InDevelopment`)
   - Branch: `feature/in-development` (based on `origin/PhilsDesignTools`)
 
 ## Daily workflow
@@ -19,7 +19,7 @@ and still be backed up to Git.
   `git worktree list`
 - Create the dev worktree (from the main repo folder):
   `git fetch --all --prune --tags`
-  `git worktree add .\InDevelopment feature/in-development`
+  `git worktree add ..\InDevelopment feature/in-development`
 - Push the feature branch:
   `git push -u origin feature/in-development`
 - Update the worktree with latest `PhilsDesignTools`:
