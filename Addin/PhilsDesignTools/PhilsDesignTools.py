@@ -34,6 +34,7 @@ def run(context):
         import smg_component_set as component_set_mod
         import smg_wireframe as wireframe_mod
         import smg_holecut as holecut_mod
+        import smg_stub_arms as stub_arms_mod
         import smg_logger as logger
 
         # Initialise shared context (app, ui, handler store, etc.).
@@ -98,6 +99,7 @@ def run(context):
             "PhilsDesignTools_ComponentSet",
             "PhilsDesignTools_WireframeFromBody",
             "PhilsDesignTools_HoleCutFromFace",
+            "PhilsDesignTools_StubArms",
         ]
 
         legacy_panels = []
@@ -127,6 +129,7 @@ def run(context):
         component_set_mod.register(ui, panel)
         wireframe_mod.register(ui, panel)
         holecut_mod.register(ui, panel)
+        stub_arms_mod.register(ui, panel)
 
     except:
         try:
@@ -157,6 +160,7 @@ def stop(context):
             "PhilsDesignTools_ComponentSet",
             "PhilsDesignTools_WireframeFromBody",
             "PhilsDesignTools_HoleCutFromFace",
+            "PhilsDesignTools_StubArms",
         ]
 
         if ws:
