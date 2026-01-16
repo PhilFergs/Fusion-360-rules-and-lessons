@@ -16,7 +16,8 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 ## Commands
 - PhilsDesignTools panel: EA From Lines, SHS From Lines, RHS From Lines, Rotate Steel Member,
   Batch Rename, Split Body (Keep Side), Split Body Delete, EA Hole Export CSV,
-  IGES Component Export, New Component Set, Wireframe From Body, Hole Cut From Face
+  IGES Component Export, New Component Set, Wireframe From Body, Hole Cut From Face,
+  Stub Arms To Wall
 
 ## Tool instructions
 - EA From Lines: Select sketch lines, set flange/thickness/extra/holes/angle, then OK.
@@ -31,7 +32,9 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - New Component Set: Enter prefix, number range (for example 1-40), and suffix, then OK.
 - Wireframe From Body: Select solid bodies (6 faces), then OK to create centerline sketches and hide bodies.
 - Hole Cut From Face: Select a cylindrical hole face and a target body, then OK to cut.
+- Stub Arms To Wall: Select RHS column bodies and wall faces/bodies, set connection count and offsets, then OK.
 
 ## Development notes
 - Update `Addin/CHANGELOG.md` (user-facing) and `Addin/DEVLOG.md` (working notes) with each change set.
 - Keep cache/log files out of git; see `Addin/.gitignore`.
+- Every new command must include debug logging (DEBUG flag + detailed failure reasons) alongside the standard command summary log.

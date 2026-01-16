@@ -1,4 +1,4 @@
-import adsk.core, adsk.fusion, traceback, os
+﻿import adsk.core, adsk.fusion, traceback, os
 import smg_context as ctx
 import smg_logger as logger
 
@@ -11,6 +11,7 @@ RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 TOL = 1e-6
 ANGLE_TOL = 1e-3
 FACE_TOL = 1e-3
+DEBUG_STUB_ARMS = True
 
 
 class StubArmsExecuteHandler(adsk.core.CommandEventHandler):
@@ -78,6 +79,11 @@ class StubArmsCreatedHandler(adsk.core.CommandCreatedEventHandler):
         except:
             logger.log("Stub Arms CommandCreated failed:\n" + traceback.format_exc())
             ctx.ui().messageBox("Stub Arms CommandCreated failed:\n" + traceback.format_exc())
+
+
+def _dbg(message):
+    if DEBUG_STUB_ARMS:
+        logger.log(f"{CMD_NAME} DEBUG: {message}")
 
 
 def _normalise(v):
@@ -206,7 +212,10 @@ def _offset_point(p, d, dist):
 
 def _closest_face_point(face, point):
     try:
-        res = face.evaluator.getClosestPoint(point)
+        if hasattr(face.evaluator, "getClosestPointTo"):
+            res = face.evaluator.getClosestPointTo(point)
+        else:
+            res = face.evaluator.getClosestPoint(point)
     except:
         return None
     if isinstance(res, tuple):
@@ -221,6 +230,40 @@ def _point_on_face(face, point):
     if not cp:
         return False
     return cp.distanceTo(point) <= FACE_TOL
+
+
+def _project_point_to_plane(point, plane_origin, plane_normal):
+    n_vec = adsk.core.Vector3D.create(plane_normal.x, plane_normal.y, plane_normal.z)
+    if n_vec.length < TOL:
+        return None
+    n_vec.normalize()
+    v = adsk.core.Vector3D.create(
+        point.x - plane_origin.x,
+        point.y - plane_origin.y,
+        point.z - plane_origin.z,
+    )
+    dist = n_vec.dotProduct(v)
+    return adsk.core.Point3D.create(
+        point.x - n_vec.x * dist,
+        point.y - n_vec.y * dist,
+        point.z - n_vec.z * dist,
+    )
+
+
+def _project_vector_to_plane(vec, plane_normal):
+    n_vec = adsk.core.Vector3D.create(plane_normal.x, plane_normal.y, plane_normal.z)
+    if n_vec.length < TOL:
+        return None
+    n_vec.normalize()
+    proj = vec.dotProduct(n_vec)
+    out = adsk.core.Vector3D.create(
+        vec.x - n_vec.x * proj,
+        vec.y - n_vec.y * proj,
+        vec.z - n_vec.z * proj,
+    )
+    if out.length < TOL:
+        return None
+    return out
 
 
 def _ray_plane_intersection(origin, direction, plane):
@@ -248,6 +291,74 @@ def _ray_plane_intersection(origin, direction, plane):
     return hit, t
 
 
+def _extract_points(res):
+    if not res:
+        return []
+    if isinstance(res, tuple):
+        if len(res) >= 2 and isinstance(res[0], bool):
+            if not res[0]:
+                return []
+            return _extract_points(res[1])
+        pts = []
+        for item in res:
+            pts.extend(_extract_points(item))
+        return pts
+    if hasattr(res, "count") and hasattr(res, "item"):
+        pts = []
+        for i in range(res.count):
+            pts.append(res.item(i))
+        return pts
+    return [res]
+
+
+def _intersect_ray_with_face(face, origin, direction):
+    if direction.length < TOL:
+        return None
+    direction = _normalise(direction)
+
+    line = adsk.core.Line3D.create(
+        origin,
+        adsk.core.Point3D.create(
+            origin.x + direction.x,
+            origin.y + direction.y,
+            origin.z + direction.z,
+        )
+    )
+
+    hit_pts = []
+    try:
+        if hasattr(face.evaluator, "intersectWithLine"):
+            res = face.evaluator.intersectWithLine(line)
+            hit_pts = _extract_points(res)
+    except:
+        hit_pts = []
+
+    if not hit_pts:
+        plane = adsk.core.Plane.cast(face.geometry)
+        if plane:
+            hit, _ = _ray_plane_intersection(origin, direction, plane)
+            if hit and _point_on_face(face, hit):
+                hit_pts = [hit]
+
+    best_pt = None
+    best_t = None
+    for hit in hit_pts:
+        if not hit:
+            continue
+        vec = adsk.core.Vector3D.create(
+            hit.x - origin.x,
+            hit.y - origin.y,
+            hit.z - origin.z,
+        )
+        t = vec.dotProduct(direction)
+        if t <= TOL:
+            continue
+        if best_t is None or t < best_t:
+            best_t = t
+            best_pt = hit
+    return best_pt
+
+
 def _intersect_ray_with_faces(origin, direction, faces):
     if direction.length < TOL:
         return None
@@ -255,13 +366,16 @@ def _intersect_ray_with_faces(origin, direction, faces):
     best_pt = None
     best_t = None
     for face in faces:
-        plane = adsk.core.Plane.cast(face.geometry)
-        if not plane:
-            continue
-        hit, t = _ray_plane_intersection(origin, direction, plane)
+        hit = _intersect_ray_with_face(face, origin, direction)
         if not hit:
             continue
-        if not _point_on_face(face, hit):
+        vec = adsk.core.Vector3D.create(
+            hit.x - origin.x,
+            hit.y - origin.y,
+            hit.z - origin.z,
+        )
+        t = vec.dotProduct(direction)
+        if t <= TOL:
             continue
         if best_t is None or t < best_t:
             best_t = t
@@ -283,19 +397,41 @@ def _closest_wall_point(point, faces):
     best = None
     best_d2 = None
     for face in faces:
+        cp = None
         try:
             ev = face.evaluator
-            res = ev.getClosestPoint(point)
+            if hasattr(ev, "getClosestPointTo"):
+                res = ev.getClosestPointTo(point)
+            else:
+                res = ev.getClosestPoint(point)
         except:
             res = None
-        if not res:
-            continue
-        if isinstance(res, tuple):
-            if not res[0]:
-                continue
-            cp = res[1]
-        else:
-            cp = res
+        if res:
+            if isinstance(res, tuple):
+                if res[0]:
+                    cp = res[1]
+            else:
+                cp = res
+        if not cp:
+            try:
+                plane = adsk.core.Plane.cast(face.geometry)
+            except:
+                plane = None
+            if plane:
+                cp = _project_point_to_plane(point, plane.origin, plane.normal)
+        if not cp:
+            try:
+                bb = face.boundingBox
+            except:
+                bb = None
+            if bb:
+                minp = bb.minPoint
+                maxp = bb.maxPoint
+                cp = adsk.core.Point3D.create(
+                    (minp.x + maxp.x) * 0.5,
+                    (minp.y + maxp.y) * 0.5,
+                    (minp.z + maxp.z) * 0.5,
+                )
         if not cp:
             continue
         dx = cp.x - point.x
@@ -336,6 +472,66 @@ def _direction_to_wall(point, axis_dir, wall_faces):
     if dir_vec.dotProduct(vec) < 0:
         dir_vec.scaleBy(-1)
     return dir_vec
+
+
+def _pick_front_face(body_faces, axis_dir, wall_dir):
+    best_face = None
+    best_n = None
+    best_dot = -1.0
+    for face in body_faces:
+        plane = adsk.core.Plane.cast(face.geometry)
+        if not plane:
+            continue
+        n = plane.normal
+        if not n or n.length < TOL:
+            continue
+        n_vec = adsk.core.Vector3D.create(n.x, n.y, n.z)
+        n_vec.normalize()
+        # Ignore end faces (normal ~ axis).
+        if abs(n_vec.dotProduct(axis_dir)) > 0.2:
+            continue
+        dot = n_vec.dotProduct(wall_dir)
+        if dot > best_dot:
+            best_dot = dot
+            best_face = face
+            best_n = n_vec
+    if not best_face or not best_n:
+        return None, None
+    if best_dot < 0:
+        best_n.scaleBy(-1)
+    return best_face, best_n
+
+
+def _pick_side_face(body_faces, axis_dir, front_n, wall_point):
+    best_face = None
+    best_n = None
+    best_d = None
+    for face in body_faces:
+        plane = adsk.core.Plane.cast(face.geometry)
+        if not plane:
+            continue
+        n = plane.normal
+        if not n or n.length < TOL:
+            continue
+        n_vec = adsk.core.Vector3D.create(n.x, n.y, n.z)
+        n_vec.normalize()
+        # Ignore end faces (normal ~ axis).
+        if abs(n_vec.dotProduct(axis_dir)) > 0.2:
+            continue
+        # Side faces are ~perpendicular to the front face normal.
+        if abs(n_vec.dotProduct(front_n)) > 0.2:
+            continue
+        v = adsk.core.Vector3D.create(
+            wall_point.x - plane.origin.x,
+            wall_point.y - plane.origin.y,
+            wall_point.z - plane.origin.z,
+        )
+        dist = abs(n_vec.dotProduct(v))
+        if best_d is None or dist < best_d:
+            best_d = dist
+            best_face = face
+            best_n = n_vec
+    return best_face, best_n
 
 
 def _collect_bodies(sel_input):
@@ -443,6 +639,8 @@ def _execute(args):
         ctx.ui().messageBox("No valid wall faces found.")
         return
 
+    _dbg(f"Selected bodies={len(bodies)}, wall_faces={len(faces)}, points={count}")
+
     logger.log_command(
         CMD_NAME,
         {
@@ -471,19 +669,82 @@ def _execute(args):
         axis = _get_body_axis(body)
         axis_dir, bottom, top, length = _axis_endpoints(body, axis) if axis else (None, None, None, None)
         if not axis_dir or not bottom or not top or not length:
+            _dbg(f"Skip body='{body.name if body else ''}': axis/length invalid")
             cols_skipped.append(body.name or "<unnamed>")
             continue
         body_faces = _faces_from_body(body)
         if not body_faces:
+            _dbg(f"Skip body='{body.name if body else ''}': no faces")
             cols_skipped.append(body.name or "<unnamed>")
             continue
 
+        center = _get_body_center(body)
+        if not center:
+            _dbg(f"Skip body='{body.name if body else ''}': no center")
+            cols_skipped.append(body.name or "<unnamed>")
+            continue
+        wall_cp = _closest_wall_point(center, faces)
+        if not wall_cp:
+            _dbg(f"Skip body='{body.name if body else ''}': no wall point")
+            cols_skipped.append(body.name or "<unnamed>")
+            continue
+        wall_vec = adsk.core.Vector3D.create(
+            wall_cp.x - center.x,
+            wall_cp.y - center.y,
+            wall_cp.z - center.z,
+        )
+        if wall_vec.length < TOL:
+            _dbg(f"Skip body='{body.name if body else ''}': wall point too close")
+            cols_skipped.append(body.name or "<unnamed>")
+            continue
+        wall_proj = wall_vec.dotProduct(axis_dir)
+        wall_dir = adsk.core.Vector3D.create(
+            wall_vec.x - axis_dir.x * wall_proj,
+            wall_vec.y - axis_dir.y * wall_proj,
+            wall_vec.z - axis_dir.z * wall_proj,
+        )
+        if wall_dir.length < TOL:
+            wall_dir = _normalise(wall_vec)
+        else:
+            wall_dir.normalize()
+
+        front_face, front_n = _pick_front_face(body_faces, axis_dir, wall_dir)
+        if not front_face or not front_n:
+            _dbg(f"Skip body='{body.name if body else ''}': no front face")
+            cols_skipped.append(body.name or "<unnamed>")
+            continue
+
+        side_face, side_n = _pick_side_face(body_faces, axis_dir, front_n, wall_cp)
+        if not side_face or not side_n:
+            _dbg(f"Skip body='{body.name if body else ''}': no side face")
+            cols_skipped.append(body.name or "<unnamed>")
+            continue
+
+        side_plane = adsk.core.Plane.cast(side_face.geometry)
+        if not side_plane:
+            _dbg(f"Skip body='{body.name if body else ''}': side face not planar")
+            cols_skipped.append(body.name or "<unnamed>")
+            continue
+
+        front_dir = _project_vector_to_plane(front_n, side_n)
+        if not front_dir:
+            _dbg(f"Skip body='{body.name if body else ''}': front dir not in side plane")
+            cols_skipped.append(body.name or "<unnamed>")
+            continue
+        front_dir.normalize()
+        if front_dir.dotProduct(wall_dir) < 0:
+            front_dir.scaleBy(-1)
+
+        inboard_dir = adsk.core.Vector3D.create(-front_dir.x, -front_dir.y, -front_dir.z)
+
         span = length - bottom_u - top_u
         if count < 2 or span <= TOL:
+            _dbg(f"Skip body='{body.name if body else ''}': span={span:.4f} count={count}")
             cols_skipped.append(body.name or "<unnamed>")
             continue
         spacing = span / float(count - 1)
         if spacing <= TOL:
+            _dbg(f"Skip body='{body.name if body else ''}': spacing={spacing:.4f}")
             cols_skipped.append(body.name or "<unnamed>")
             continue
 
@@ -492,26 +753,50 @@ def _execute(args):
             dist = bottom_u + spacing * i
             points.append(_offset_point(bottom, axis_dir, dist))
 
+        _dbg(
+            f"Body='{body.name if body else ''}' axis=({axis_dir.x:.4f},{axis_dir.y:.4f},{axis_dir.z:.4f}) "
+            f"len={length:.4f} bottom=({bottom.x:.4f},{bottom.y:.4f},{bottom.z:.4f}) "
+            f"top=({top.x:.4f},{top.y:.4f},{top.z:.4f}) spacing={spacing:.4f}"
+        )
+        _dbg(
+            f"Body='{body.name if body else ''}' wall_dir=({wall_dir.x:.4f},{wall_dir.y:.4f},{wall_dir.z:.4f})"
+        )
+        _dbg(
+            f"Body='{body.name if body else ''}' front_n=({front_n.x:.4f},{front_n.y:.4f},{front_n.z:.4f})"
+        )
+        _dbg(
+            f"Body='{body.name if body else ''}' side_n=({side_n.x:.4f},{side_n.y:.4f},{side_n.z:.4f})"
+        )
+        _dbg(
+            f"Body='{body.name if body else ''}' front_dir=({front_dir.x:.4f},{front_dir.y:.4f},{front_dir.z:.4f})"
+        )
+
+        test_pt = _project_point_to_plane(center, side_plane.origin, side_n)
+        if test_pt:
+            test_start = _offset_point(test_pt, inboard_dir, inboard_u)
+            test_hit = _intersect_ray_with_faces(test_start, front_dir, faces)
+            if not test_hit:
+                front_dir.scaleBy(-1)
+                inboard_dir.scaleBy(-1)
+                _dbg(f"Body='{body.name if body else ''}': flipped front_dir to hit wall")
+
         for i in range(len(points) - 1):
             upper = points[i]
             lower = points[i + 1]
 
-            dir_vec = _direction_to_wall(upper, axis_dir, faces)
-            if not dir_vec:
+            upper_on = _project_point_to_plane(upper, side_plane.origin, side_n)
+            lower_on = _project_point_to_plane(lower, side_plane.origin, side_n)
+            if not upper_on or not lower_on:
+                _dbg(f"Pair {i}: no column plane projection body='{body.name if body else ''}'")
                 pair_missed += 1
                 continue
 
-            upper_hit = _intersect_ray_with_faces(upper, dir_vec, body_faces)
-            lower_hit = _intersect_ray_with_faces(lower, dir_vec, body_faces)
-            if not upper_hit or not lower_hit:
-                pair_missed += 1
-                continue
+            upper_start = _offset_point(upper_on, inboard_dir, inboard_u)
+            lower_start = _offset_point(lower_on, inboard_dir, inboard_u)
 
-            upper_start = _offset_point(upper_hit, dir_vec, -inboard_u)
-            lower_start = _offset_point(lower_hit, dir_vec, -inboard_u)
-
-            wall_hit = _intersect_ray_with_faces(upper_start, dir_vec, faces)
+            wall_hit = _intersect_ray_with_faces(upper_start, front_dir, faces)
             if not wall_hit:
+                _dbg(f"Pair {i}: no wall hit along front_dir body='{body.name if body else ''}'")
                 pair_missed += 1
                 continue
 
