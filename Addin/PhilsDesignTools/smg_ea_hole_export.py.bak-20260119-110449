@@ -13,7 +13,6 @@ CMD_TOOLTIP = "Export EA hole locations to CSV."
 RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 
 SELECTION_INPUT_ID = "ea_hole_export_selection"
-FILTER_NON_STANDARD_ID = "ea_hole_export_non_standard"
 
 
 class HoleExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -37,14 +36,6 @@ class HoleExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
             except:
                 logger.log("Selection filter 'Components' not supported; ignoring.")
             sel.setSelectionLimits(1, 0)
-
-            inputs.addBoolValueInput(
-                FILTER_NON_STANDARD_ID,
-                "Non Standard Only (>2 holes)",
-                True,
-                "",
-                False,
-            )
 
             on_exec = HoleExportExecuteHandler()
             cmd.execute.add(on_exec)
@@ -227,10 +218,6 @@ def _execute(args):
     cmd = args.command
     inputs = cmd.commandInputs
     sel_input = adsk.core.SelectionCommandInput.cast(inputs.itemById(SELECTION_INPUT_ID))
-    non_standard_in = adsk.core.BoolValueCommandInput.cast(
-        inputs.itemById(FILTER_NON_STANDARD_ID)
-    )
-    non_standard_only = non_standard_in.value if non_standard_in else False
 
     bodies = _iterate_selected_bodies(sel_input)
 
@@ -253,7 +240,6 @@ def _execute(args):
         {
             "selected_bodies": len(bodies),
             "output": out_path,
-            "non_standard_only": non_standard_only,
         },
     )
 
@@ -324,10 +310,6 @@ def _execute(args):
 
             n = _normalize(best_plane.normal)
             plane_origin = best_plane.origin
-            # Hole axes align with the face normal; fillets/rounded profiles do not.
-            axis = _normalize(cyl.axis)
-            if axis.length <= 1e-6 or abs(axis.dotProduct(n)) < 0.8:
-                continue
 
             cluster_idx = _cluster_normal(flange_clusters, n)
             cluster = flange_clusters[cluster_idx]
@@ -407,9 +389,6 @@ def _execute(args):
             valid_holes.append(h)
 
         if not valid_holes:
-            continue
-
-        if non_standard_only and len(valid_holes) <= 2:
             continue
 
         valid_holes.sort(key=lambda h: h["cL"])
