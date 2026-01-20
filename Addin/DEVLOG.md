@@ -37,3 +37,21 @@ Ongoing development notes for the Phils Design Tools add-in.
 ## 2026-01-16
 - Added Stub Arms To Wall command to create stub-arm sketch lines from RHS columns to wall faces.
 - Implemented debug logging and geometry diagnostics for the stub arms workflow.
+
+## 2026-01-21
+- Stub Arms To Wall rework: selection now uses a face for the column, sketch is created directly on that face in assembly context, and guide lines are drawn using modelToSketchSpace so they land on the selected face.
+- Fixed top/bottom offset inversion by enforcing world Z ordering on the axis endpoints before spacing.
+- Simplified face/axis detection to reduce drift; guide lines confirm spacing and offsets are now correct on the selected face.
+- Reintroduced wall selection + ray logic; added local/assembly transforms for wall faces and per-pair "no wall hit" debug logging (world + local ray origin/dir and wall normal).
+- Added stub arms triangle drawing using the midpoints between guide lines when a wall hit is found (guide lines remain for debugging).
+
+Current status
+- Guide lines are correct and in the right place, but wall hits are still missing for some linked wall faces.
+- Latest debug lines ("Missed pair ... mid_w/dir_w ... mid_l/dir_l ... wall_n_*") should appear in `Addin/PhilsDesignTools/PhilsDesignTools.log` after running the tool.
+
+Suggestions to resume / fix if still missing wall hits
+- Confirm Fusion is loading the latest add-in build (restart Fusion after deploy) and check the log for the "Missed pair" debug lines.
+- Use the logged world/local ray direction to verify rays are going outward from the selected face; if not, flip the direction or use the selected face normal directly.
+- If wall faces are from linked components, test with a native (non-linked) wall face to confirm whether occurrence transforms are still wrong.
+- Try intersecting against the wall face plane first, then check point-in-face as a fallback (bypass ray casting issues).
+- As a last resort, project the wall face to the sketch and intersect 2D lines to get hit points.
