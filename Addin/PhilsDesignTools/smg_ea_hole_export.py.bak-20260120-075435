@@ -14,7 +14,6 @@ RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 
 SELECTION_INPUT_ID = "ea_hole_export_selection"
 FILTER_NON_STANDARD_ID = "ea_hole_export_non_standard"
-INCLUDE_SUBCOMPONENTS_ID = "ea_hole_export_include_subcomponents"
 
 
 class HoleExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -46,13 +45,6 @@ class HoleExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 "",
                 False,
             )
-            inputs.addBoolValueInput(
-                INCLUDE_SUBCOMPONENTS_ID,
-                "Include subcomponents",
-                True,
-                "",
-                True,
-            )
 
             on_exec = HoleExportExecuteHandler()
             cmd.execute.add(on_exec)
@@ -72,69 +64,7 @@ class HoleExportExecuteHandler(adsk.core.CommandEventHandler):
             ctx.ui().messageBox("EA Hole Export CSV failed:\n" + traceback.format_exc())
 
 
-def _safe_entity_token(entity):
-    try:
-        return entity.entityToken
-    except:
-        return None
-
-
-def _append_body(comp_name, body, tokens, bodies):
-    if not body or not body.isSolid:
-        return
-    tok = _safe_entity_token(body)
-    if tok and tok in tokens:
-        return
-    if tok:
-        tokens.add(tok)
-    bodies.append((comp_name, body))
-
-
-def _collect_occurrence_bodies(occ, include_children, tokens, bodies):
-    if not occ:
-        return
-    comp_name = occ.component.name if occ.component else occ.name
-    try:
-        for b in occ.bRepBodies:
-            _append_body(comp_name, b, tokens, bodies)
-    except:
-        pass
-
-    if not include_children:
-        return
-    try:
-        children = occ.childOccurrences
-    except:
-        children = None
-    if not children:
-        return
-    for child in children:
-        _collect_occurrence_bodies(child, include_children, tokens, bodies)
-
-
-def _collect_component_bodies(comp, include_children, tokens, bodies):
-    if not comp:
-        return
-    comp_name = comp.name
-    try:
-        for b in comp.bRepBodies:
-            _append_body(comp_name, b, tokens, bodies)
-    except:
-        pass
-
-    if not include_children:
-        return
-    try:
-        occs = comp.occurrences
-    except:
-        occs = None
-    if not occs:
-        return
-    for occ in occs:
-        _collect_occurrence_bodies(occ, include_children, tokens, bodies)
-
-
-def _iterate_selected_bodies(sel_input, include_subcomponents):
+def _iterate_selected_bodies(sel_input):
     if not sel_input or sel_input.selectionCount == 0:
         raise RuntimeError("No entities selected. Select components or bodies first.")
 
@@ -151,13 +81,46 @@ def _iterate_selected_bodies(sel_input, include_subcomponents):
         body = adsk.fusion.BRepBody.cast(ent)
 
         if occ:
-            _collect_occurrence_bodies(occ, include_subcomponents, tokens, bodies)
+            comp_name = occ.component.name if occ.component else occ.name
+            for b in occ.bRepBodies:
+                if not b.isSolid:
+                    continue
+                try:
+                    tok = b.entityToken
+                except:
+                    tok = None
+                if tok and tok in tokens:
+                    continue
+                if tok:
+                    tokens.add(tok)
+                bodies.append((comp_name, b))
         elif comp:
-            _collect_component_bodies(comp, include_subcomponents, tokens, bodies)
+            comp_name = comp.name
+            for b in comp.bRepBodies:
+                if not b.isSolid:
+                    continue
+                try:
+                    tok = b.entityToken
+                except:
+                    tok = None
+                if tok and tok in tokens:
+                    continue
+                if tok:
+                    tokens.add(tok)
+                bodies.append((comp_name, b))
         elif body:
-            comp = body.parentComponent
-            comp_name = comp.name if comp else "UnknownComponent"
-            _append_body(comp_name, body, tokens, bodies)
+            if body.isSolid:
+                comp = body.parentComponent
+                comp_name = comp.name if comp else "UnknownComponent"
+                try:
+                    tok = body.entityToken
+                except:
+                    tok = None
+                if tok and tok in tokens:
+                    continue
+                if tok:
+                    tokens.add(tok)
+                bodies.append((comp_name, body))
 
     if not bodies:
         raise RuntimeError("No solid bodies found in selection.")
@@ -218,23 +181,19 @@ def _get_body_axes(body):
         length_dir = diag
 
     min_proj = None
-    max_proj = None
     for v in body.vertices:
         p = v.geometry
         vec = adsk.core.Vector3D.create(p.x, p.y, p.z)
         proj = vec.dotProduct(length_dir)
         if min_proj is None or proj < min_proj:
             min_proj = proj
-        if max_proj is None or proj > max_proj:
-            max_proj = proj
 
-    if min_proj is None or max_proj is None:
+    if min_proj is None:
         raise RuntimeError("Failed to determine length extent for body '{}'".format(body.name))
 
     return {
         "length_dir": length_dir,
         "min_proj": min_proj,
-        "max_proj": max_proj,
         "min_p": min_p,
         "max_p": max_p,
     }
@@ -271,13 +230,9 @@ def _execute(args):
     non_standard_in = adsk.core.BoolValueCommandInput.cast(
         inputs.itemById(FILTER_NON_STANDARD_ID)
     )
-    include_sub_in = adsk.core.BoolValueCommandInput.cast(
-        inputs.itemById(INCLUDE_SUBCOMPONENTS_ID)
-    )
     non_standard_only = non_standard_in.value if non_standard_in else False
-    include_subcomponents = include_sub_in.value if include_sub_in else True
 
-    bodies = _iterate_selected_bodies(sel_input, include_subcomponents)
+    bodies = _iterate_selected_bodies(sel_input)
 
     ui = ctx.ui()
     app = ctx.app()
@@ -299,40 +254,19 @@ def _execute(args):
             "selected_bodies": len(bodies),
             "output": out_path,
             "non_standard_only": non_standard_only,
-            "include_subcomponents": include_subcomponents,
         },
     )
 
     CM_TO_MM = 10.0
 
-    header = [
+    rows = [[
         "EAComponent",
         "HoleIndex",
         "Flange",
         "DistanceFromLeft_mm",
-        "DistanceFromRight_mm",
-        "MemberLength_mm",
         "HoleInset_mm",
         "HoleDiameter_mm",
-    ]
-    padding = [""] * (len(header) - 1)
-    rows = []
-    how_to = [
-        "How to use this CSV",
-        "Each row describes one hole in one EA member. All units are millimeters.",
-        "EAComponent is the member name; use it to identify the EA profile in your system.",
-        "MemberLength_mm is the total member length; cut the member to this length.",
-        "Flange tells which face the hole is on (Horizontal or Vertical).",
-        "DistanceFromLeft_mm is measured along the member length from the left end to the hole center.",
-        "DistanceFromRight_mm is measured along the member length from the right end to the hole center.",
-        "Left/Right are based on the member's longest axis; left = the end with the smaller coordinate along that axis.",
-        "HoleInset_mm is the distance from the hole center to the nearest flange edge (across the flange width).",
-        "HoleDiameter_mm is the hole diameter to drill.",
-    ]
-    for line in how_to:
-        rows.append([line] + padding)
-    rows.append([""] + padding)
-    rows.append(header)
+    ]]
 
     total_holes = 0
 
@@ -345,11 +279,6 @@ def _execute(args):
 
         length_dir = axes["length_dir"]
         min_proj = axes["min_proj"]
-        max_proj = axes["max_proj"]
-        total_length_cm = max_proj - min_proj
-        if total_length_cm <= 1e-6:
-            ui.messageBox("Skipping body '{}':\nInvalid member length.".format(body.name))
-            continue
 
         cyl_faces = _get_cylindrical_faces(body)
         if not cyl_faces:
@@ -500,8 +429,6 @@ def _execute(args):
             max_s = cl["max_s"]
 
             distance_from_left_mm = round(cL_cm * CM_TO_MM)
-            distance_from_right_mm = round((total_length_cm - cL_cm) * CM_TO_MM)
-            member_length_mm = round(total_length_cm * CM_TO_MM)
 
             r_h = adsk.core.Vector3D.create(
                 center.x - p0.x,
@@ -524,8 +451,6 @@ def _execute(args):
                 hole_index,
                 flange_label,
                 distance_from_left_mm,
-                distance_from_right_mm,
-                member_length_mm,
                 inset_mm,
                 diameter_mm,
             ])

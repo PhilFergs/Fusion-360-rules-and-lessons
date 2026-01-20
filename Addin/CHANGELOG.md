@@ -22,6 +22,7 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Wireframe From Body command (from scripts) for centreline sketch creation.
 - Hole Cut From Face command (from EA_HoleCut_AddIn).
 - Dedicated PhilsDesignTools toolbar panel for all commands.
+- Stub Arms To Wall command for creating stub-arm sketch lines from RHS columns to wall surfaces.
 ### Changed
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.

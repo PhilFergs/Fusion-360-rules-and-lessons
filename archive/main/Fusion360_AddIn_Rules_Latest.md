@@ -241,6 +241,11 @@ Each add-in must include:
   - world center  
   - axis vectors  
 
+## 12.4 New Tool Debug Logging (REQUIRED)
+- Every new command must include a `DEBUG_<TOOL>` flag and emit debug logs via the shared logger.  
+- Log per-item failures (why a selection/operation was skipped) and critical geometry decisions.  
+- Keep debug logs lightweight but sufficient to reproduce failure conditions.  
+
 ---
 
 # 13. SteelMemberGeneration Lessons (v1.1.0 NEW)

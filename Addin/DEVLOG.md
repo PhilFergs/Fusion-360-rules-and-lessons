@@ -33,3 +33,7 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Integrated EA_HoleCut_AddIn as a new Hole Cut From Face command.
 - Added a dedicated PhilsDesignTools toolbar panel and moved all commands into it.
 - Added command icons for the new tools and updated README/CHANGELOG.
+
+## 2026-01-16
+- Added Stub Arms To Wall command to create stub-arm sketch lines from RHS columns to wall faces.
+- Implemented debug logging and geometry diagnostics for the stub arms workflow.
