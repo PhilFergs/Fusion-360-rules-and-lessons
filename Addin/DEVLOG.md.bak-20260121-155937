@@ -44,7 +44,6 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Simplified face/axis detection to reduce drift; guide lines confirm spacing and offsets are now correct on the selected face.
 - Reintroduced wall selection + ray logic; added local/assembly transforms for wall faces and per-pair "no wall hit" debug logging (world + local ray origin/dir and wall normal).
 - Added stub arms triangle drawing using the midpoints between guide lines when a wall hit is found (guide lines remain for debugging).
-- Marked backup `Addin/PhilsDesignTools/smg_stub_arms.py.bak-Some what working model` as the reference snapshot that produces lines without face-bounds clipping.
 
 Current status
 - Guide lines are correct and in the right place, but wall hits are still missing for some linked wall faces.

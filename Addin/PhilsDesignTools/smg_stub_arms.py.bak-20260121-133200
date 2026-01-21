@@ -12,6 +12,7 @@ TOL = 1e-6
 ANGLE_TOL = 1e-3
 DEBUG_STUB_ARMS = True
 DEBUG_WALL_MARKERS = True
+LINE_SNAP_TOL = 0.5  # cm (5 mm)
 
 
 class StubArmsExecuteHandler(adsk.core.CommandEventHandler):
@@ -529,16 +530,16 @@ def _intersect_ray_with_face(face, origin, direction):
                     cp = _closest_point_on_face(face, hit)
                     if cp:
                         dist, t_cp = _point_line_distance(cp, origin, d)
-                        if t_cp > TOL:
-                            if DEBUG_STUB_ARMS:
-                                _dbg(f"Plane hit outside face; snapping to closest point (dist={dist:.4f}).")
+                        if dist is not None and dist <= LINE_SNAP_TOL and t_cp > TOL:
                             hit_pts = [cp]
+                        elif DEBUG_STUB_ARMS:
+                            _dbg(f"Plane hit outside face; cp dist={dist:.4f} t={t_cp:.4f} (skip)")
 
     if not hit_pts:
         cp = _closest_point_on_face(face, origin)
         if cp:
             dist, t_cp = _point_line_distance(cp, origin, d)
-            if t_cp > TOL:
+            if dist is not None and dist <= LINE_SNAP_TOL and t_cp > TOL:
                 if DEBUG_STUB_ARMS:
                     _dbg(f"Line snap to face cp dist={dist:.4f} t={t_cp:.4f}")
                 hit_pts = [cp]

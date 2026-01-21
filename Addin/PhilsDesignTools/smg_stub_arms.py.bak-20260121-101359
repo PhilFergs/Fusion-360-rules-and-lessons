@@ -429,39 +429,6 @@ def _is_point_on_face(face, point):
     return cp.distanceTo(point) <= 1e-3
 
 
-def _closest_point_on_face(face, point):
-    try:
-        if hasattr(face.evaluator, "getClosestPointTo"):
-            res = face.evaluator.getClosestPointTo(point)
-        else:
-            res = face.evaluator.getClosestPoint(point)
-    except:
-        return None
-    if isinstance(res, tuple):
-        if not res[0]:
-            return None
-        return res[1]
-    return res
-
-
-def _point_line_distance(point, origin, direction):
-    if not point or not origin or direction.length < TOL:
-        return None, None
-    d = _normalise(direction)
-    v = adsk.core.Vector3D.create(
-        point.x - origin.x,
-        point.y - origin.y,
-        point.z - origin.z,
-    )
-    t = v.dotProduct(d)
-    proj = adsk.core.Point3D.create(
-        origin.x + d.x * t,
-        origin.y + d.y * t,
-        origin.z + d.z * t,
-    )
-    return proj.distanceTo(point), t
-
-
 def _to_local_point(point, occ):
     if not point or not occ:
         return point
@@ -522,26 +489,8 @@ def _intersect_ray_with_face(face, origin, direction):
         plane = _get_face_plane(face)
         if plane:
             hit, t = _line_plane_intersection(origin, d, plane)
-            if hit and t > TOL:
-                if _is_point_on_face(face, hit):
-                    hit_pts = [hit]
-                else:
-                    cp = _closest_point_on_face(face, hit)
-                    if cp:
-                        dist, t_cp = _point_line_distance(cp, origin, d)
-                        if t_cp > TOL:
-                            if DEBUG_STUB_ARMS:
-                                _dbg(f"Plane hit outside face; snapping to closest point (dist={dist:.4f}).")
-                            hit_pts = [cp]
-
-    if not hit_pts:
-        cp = _closest_point_on_face(face, origin)
-        if cp:
-            dist, t_cp = _point_line_distance(cp, origin, d)
-            if t_cp > TOL:
-                if DEBUG_STUB_ARMS:
-                    _dbg(f"Line snap to face cp dist={dist:.4f} t={t_cp:.4f}")
-                hit_pts = [cp]
+            if hit and t > TOL and _is_point_on_face(face, hit):
+                hit_pts = [hit]
     best_pt = None
     best_t = None
     for hit in hit_pts:
@@ -565,10 +514,16 @@ def _intersect_ray_with_faces(origin, direction, faces):
     best = None
     best_t = None
     for entry in faces:
-        face = entry.get("asm") if isinstance(entry, dict) else entry
-        if not face:
-            continue
-        hit = _intersect_ray_with_face(face, origin, direction)
+        face = entry["asm"]
+        native = entry["native"]
+        occ = entry["occ"]
+        if occ:
+            o_local = _to_local_point(origin, occ)
+            d_local = _to_local_vector(direction, occ)
+            hit_local = _intersect_ray_with_face(native, o_local, d_local)
+            hit = _to_world_point(hit_local, occ) if hit_local else None
+        else:
+            hit = _intersect_ray_with_face(face, origin, direction)
         if not hit:
             continue
         v = adsk.core.Vector3D.create(
@@ -880,7 +835,7 @@ def _execute(args):
             _dbg(f"Skip body='{label}': line dir invalid")
             cols_skipped.append(label)
             continue
-        wall_dir = _normalise(line_dir)
+        wall_dir = _normalise(plane.normal)
 
         span = _face_span_along_dir(face, line_dir)
         line_len = span * 0.9 if span and span > TOL else default_line_len
@@ -916,33 +871,17 @@ def _execute(args):
             lines_created += 1
 
         for i in range(len(face_points) - 1):
-            lower = face_points[i]
-            upper = face_points[i + 1]
+            upper = face_points[i]
+            lower = face_points[i + 1]
             mid = adsk.core.Point3D.create(
                 (upper.x + lower.x) * 0.5,
                 (upper.y + lower.y) * 0.5,
                 (upper.z + lower.z) * 0.5,
             )
-
-            hit = None
-            hit_from = "upper"
-            hit = _intersect_ray_with_faces(upper, wall_dir, wall_faces)
-            if not hit:
-                hit_from = "lower"
-                hit = _intersect_ray_with_faces(lower, wall_dir, wall_faces)
-            if not hit:
-                hit_from = "mid"
-                hit = _intersect_ray_with_faces(mid, wall_dir, wall_faces)
+            hit = _intersect_ray_with_faces(mid, wall_dir, wall_faces)
             if not hit:
                 neg_dir = adsk.core.Vector3D.create(-wall_dir.x, -wall_dir.y, -wall_dir.z)
-                hit_from = "upper_neg"
-                hit = _intersect_ray_with_faces(upper, neg_dir, wall_faces)
-                if not hit:
-                    hit_from = "lower_neg"
-                    hit = _intersect_ray_with_faces(lower, neg_dir, wall_faces)
-                if not hit:
-                    hit_from = "mid_neg"
-                    hit = _intersect_ray_with_faces(mid, neg_dir, wall_faces)
+                hit = _intersect_ray_with_faces(mid, neg_dir, wall_faces)
             if not hit:
                 if DEBUG_STUB_ARMS and wall_faces:
                     wf = wall_faces[0]
@@ -972,8 +911,6 @@ def _execute(args):
                         )
                 pair_missed += 1
                 continue
-            if DEBUG_STUB_ARMS:
-                _dbg(f"Pair {i}: wall hit from {hit_from}")
             try:
                 upper_sk = sk.modelToSketchSpace(upper)
                 lower_sk = sk.modelToSketchSpace(lower)

@@ -444,24 +444,6 @@ def _closest_point_on_face(face, point):
     return res
 
 
-def _point_line_distance(point, origin, direction):
-    if not point or not origin or direction.length < TOL:
-        return None, None
-    d = _normalise(direction)
-    v = adsk.core.Vector3D.create(
-        point.x - origin.x,
-        point.y - origin.y,
-        point.z - origin.z,
-    )
-    t = v.dotProduct(d)
-    proj = adsk.core.Point3D.create(
-        origin.x + d.x * t,
-        origin.y + d.y * t,
-        origin.z + d.z * t,
-    )
-    return proj.distanceTo(point), t
-
-
 def _to_local_point(point, occ):
     if not point or not occ:
         return point
@@ -528,20 +510,10 @@ def _intersect_ray_with_face(face, origin, direction):
                 else:
                     cp = _closest_point_on_face(face, hit)
                     if cp:
-                        dist, t_cp = _point_line_distance(cp, origin, d)
-                        if t_cp > TOL:
-                            if DEBUG_STUB_ARMS:
-                                _dbg(f"Plane hit outside face; snapping to closest point (dist={dist:.4f}).")
-                            hit_pts = [cp]
-
-    if not hit_pts:
-        cp = _closest_point_on_face(face, origin)
-        if cp:
-            dist, t_cp = _point_line_distance(cp, origin, d)
-            if t_cp > TOL:
-                if DEBUG_STUB_ARMS:
-                    _dbg(f"Line snap to face cp dist={dist:.4f} t={t_cp:.4f}")
-                hit_pts = [cp]
+                        if DEBUG_STUB_ARMS:
+                            dist = cp.distanceTo(hit)
+                            _dbg(f"Ray hit plane outside face; snapping to closest point (dist={dist:.4f}).")
+                        hit_pts = [cp]
     best_pt = None
     best_t = None
     for hit in hit_pts:
