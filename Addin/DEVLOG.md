@@ -37,3 +37,10 @@ Ongoing development notes for the Phils Design Tools add-in.
 ## 2026-01-16
 - Added Stub Arms To Wall command to create stub-arm sketch lines from RHS columns to wall faces.
 - Implemented debug logging and geometry diagnostics for the stub arms workflow.
+
+## 2026-01-22
+- Stub Arms To Wall finalized: on-face wall hit validation now uses projected boundary polygons (manual point-in-polygon) and removes guide lines.
+- Wall boundary sketches are created for validation and removed after the command completes.
+- Wall selection supports faces, bodies, and occurrences; column selection supports faces, bodies, and occurrences with auto side-face pick.
+- Added stub arm lines component under root to hold all stub arm sketches.
+- Added wall clearance input to shift the lower connection point up; if it cannot clear, only the upper line is drawn.

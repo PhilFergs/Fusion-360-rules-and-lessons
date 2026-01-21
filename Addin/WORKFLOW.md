@@ -12,6 +12,7 @@ for moving from wireframe to fabrication-ready steel models.
 1. Locate steel wireframe model.
 2. Import wireframe into Fusion 360.
 3. Generate RHS/SHS columns and side arms sector by sector.
+   - Stub Arms To Wall: generate stub arm sketch lines and store them under the "stub arm lines" component.
 4. Trim member ends for brackets (thickness + 3 mm clearance).
 5. Place bracket components from the Fusion library.
 6. Project bracket outlines to create EA sketch lines.
@@ -80,3 +81,4 @@ TypeWithIndex examples:
 3. Deploy via `tools/deploy_addin.ps1` to back up the previous add-in folder
    before overwriting the active Fusion add-ins copy.
 4. Optional: run `tools/watch_deploy.ps1` during development to auto-copy changes.
+5. Always create a timestamped backup before editing a tool script (e.g., `smg_stub_arms.py.bak-YYYYMMDD-HHMMSS`).

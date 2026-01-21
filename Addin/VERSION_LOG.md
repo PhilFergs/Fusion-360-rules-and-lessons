@@ -3,6 +3,10 @@
 Each upload should add a dated entry here and use the deploy script to back up
 the previous add-in folder before overwriting files in the Fusion add-ins path.
 
+## 2026-01-22 03:00
+- Branch: main
+- Summary: Stub Arms To Wall overhaul (on-face polygon hits, wall face/body/occurrence selection, column body/occurrence auto face, stub arm lines component, wall clearance with lower-line adjust/drop, no guide lines or wall sketches).
+
 ## 2026-01-02 17:05
 - Branch: PhilsDesignTools
 - Summary: EA rotate axis fix (outer hole face), debug logging, cleanup of unused imports/helper.
