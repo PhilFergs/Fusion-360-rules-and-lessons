@@ -1,56 +1,46 @@
 Stub Arms To Wall - Step By Step Workflow
 
 Purpose
-Create a pair of sketch lines from a RHS/SHS column to a wall, where each line:
-- Starts on a column side face.
-- Is perpendicular to the column long axis.
-- Hits the selected wall surface.
+Create stub arm sketch lines from RHS/SHS columns to selected wall faces. Lines are only drawn when the hit lands on a selected face boundary, and the lower line can be shifted up to clear the wall.
 
 Inputs
-- Column selection: body or occurrence. Must be RHS/SHS.
-- Wall selection: any face or body (surface or solid). If a body is selected, use all its faces.
-- Parameters: connection points, bottom offset, top offset, inboard offset.
+- Column selection: face (manual override), body, or occurrence. Body/occurrence auto-picks a side face.
+- Wall selection: face, body, or occurrence. Body/occurrence uses all faces.
+- Parameters: connection points, bottom offset, top offset, wall clearance.
 
 Workflow
 1) Collect selections in assembly context.
-   - Convert column bodies and wall faces to assembly context proxies.
-   - If the wall selection is a body, add all of its faces.
+   - Wall faces are expanded from bodies/occurrences.
+   - Column faces are used directly; column bodies/occurrences are queued for auto face selection.
 
 2) For each column body:
-   - Find the long axis by clustering edge directions and picking the longest cluster.
-   - Compute bottom/top endpoints by projecting all vertices onto the axis.
-   - Identify side faces:
-     - Keep planar faces with normals roughly perpendicular to the axis.
-     - Group by normal direction and keep the largest face per direction.
-     - From those, keep the two largest outer faces.
-   - For each side face, define:
-     - Side face plane (origin + normal).
-     - Inboard direction = face normal pointing toward the body center.
-     - Outward direction = opposite of inboard direction.
+   - Find the long axis and bottom/top endpoints.
+   - Candidate side faces are planar faces with normals roughly perpendicular to the axis.
+   - Keep the largest faces; tie-break by most valid on-face hits along the stub-arm direction.
 
-3) Build connection points along the axis.
-   - Start at bottom offset, end at top offset, evenly spaced.
-   - Each adjacent pair (upper/lower) is a "pair" that will share one wall point.
+3) For each column face:
+   - Compute the line direction in the face plane:
+     - line_dir = axis_dir cross face_normal (normalized).
+   - Build connection points along the axis (bottom offset to top offset).
 
-4) For each pair:
-   - Compute the mid point between upper and lower along the axis.
-   - Create a slice plane through the mid point, perpendicular to the axis.
-   - For each candidate side face:
-     - Project upper/lower points onto the side face plane.
-     - Offset both by the inboard distance along the inboard direction.
-     - Define line direction in the side face plane:
-       - line_dir = axis_dir cross side_face_normal (normalize).
-     - Find the wall hit:
-       - Intersect the wall face with the slice plane to get an intersection curve.
-       - Find the closest point on that curve to the mid point (in the slice plane).
-       - If no curve exists, try the next side face.
-   - Use the first valid wall hit as the wall point.
-   - Draw two lines: upper_start -> wall_point, lower_start -> wall_point.
+4) For each pair (adjacent points):
+   - Cast rays along line_dir and -line_dir to the selected wall faces.
+   - Accept only hits that land inside the face boundary (projected boundary polygon).
 
-5) Errors and reporting:
-   - If no side faces or no wall hit, skip the pair and log it.
-   - Summarize created lines, skipped bodies, and missed pairs.
+5) Clearance adjustment:
+   - Keep the wall hit fixed.
+   - Move the lower point up by the wall clearance step until the lower line no longer intersects a wall face before the hit.
+   - If it cannot clear before reaching the upper point, skip the lower line (keep upper).
+
+6) Output:
+   - Stub arm sketches are created in the root component subcomponent "stub arm lines".
+   - Profiles are hidden; only stub-arm lines remain.
+   - Temporary wall boundary sketches are deleted.
+
+Errors and reporting
+- If no valid hit, the pair is skipped and counted as missed.
+- If no valid pairs for a column, no sketch is created.
 
 Notes
-- This method avoids ray length and direction issues by using plane/curve intersections.
-- It stays faithful to the manual workflow: draw a line on the side face, perpendicular to the axis, until it hits the wall.
+- Selecting a column face always overrides auto-pick.
+- Selecting many wall faces is supported; the closest valid on-face hit is chosen.

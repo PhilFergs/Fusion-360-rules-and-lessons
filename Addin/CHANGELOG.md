@@ -23,6 +23,7 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Hole Cut From Face command (from EA_HoleCut_AddIn).
 - Dedicated PhilsDesignTools toolbar panel for all commands.
 - Stub Arms To Wall command for creating stub-arm sketch lines from RHS columns to wall surfaces.
+- Stub Arms To Wall: wall clearance setting, auto column body selection, and stub-arm sketches grouped under the "stub arm lines" component.
 ### Changed
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.
@@ -33,3 +34,4 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Fixed EA rotate axis selection to use the outer hole face and closest-point axis, with added debug logging for axis/pivot values.
 - Removed unused imports and an unused rotate helper to reduce redundancy.
 - Documented versioning and deployment steps in WORKFLOW.md.
+- Stub Arms To Wall: boundary-only wall hit validation (on-face polygon), supports wall face/body/occurrence selection, removes guide lines and wall sketches, and skips lower lines that cannot clear the wall.

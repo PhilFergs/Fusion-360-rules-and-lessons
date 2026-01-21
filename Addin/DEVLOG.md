@@ -56,3 +56,10 @@ Suggestions to resume / fix if still missing wall hits
 - If wall faces are from linked components, test with a native (non-linked) wall face to confirm whether occurrence transforms are still wrong.
 - Try intersecting against the wall face plane first, then check point-in-face as a fallback (bypass ray casting issues).
 - As a last resort, project the wall face to the sketch and intersect 2D lines to get hit points.
+
+## 2026-01-22
+- Stub Arms To Wall finalized: on-face wall hit validation now uses projected boundary polygons (manual point-in-polygon) and removes guide lines.
+- Wall boundary sketches are created for validation and removed after the command completes.
+- Wall selection supports faces, bodies, and occurrences; column selection supports faces, bodies, and occurrences with auto side-face pick.
+- Added stub arm lines component under root to hold all stub arm sketches.
+- Added wall clearance input to shift the lower connection point up; if it cannot clear, only the upper line is drawn.

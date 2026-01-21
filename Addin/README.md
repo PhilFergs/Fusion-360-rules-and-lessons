@@ -38,3 +38,4 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - Update `Addin/CHANGELOG.md` (user-facing) and `Addin/DEVLOG.md` (working notes) with each change set.
 - Keep cache/log files out of git; see `Addin/.gitignore`.
 - Every new command must include debug logging (DEBUG flag + detailed failure reasons) alongside the standard command summary log.
+- Before modifying `Addin/PhilsDesignTools/smg_stub_arms.py`, create a timestamped backup in the same folder: `smg_stub_arms.py.bak-YYYYMMDD-HHMMSS`, and note the backup name in the chat.
