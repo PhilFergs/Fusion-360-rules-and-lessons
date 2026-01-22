@@ -8,6 +8,8 @@ CMD_NAME = "Stub Arms To Wall"
 CMD_TOOLTIP = "Create stub arm sketch lines from RHS columns to the wall."
 RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 STUB_LINES_COMPONENT_NAME = "Stub arm lines"
+STUB_MEMBER_ATTR_GROUP = "PhilsDesignTools"
+STUB_MEMBER_ATTR_NAME = "StubMemberType"
 
 TOL = 1e-6
 ANGLE_TOL = 1e-3
@@ -361,6 +363,25 @@ def _disable_sketch_profiles(sketch):
             setattr(sketch, attr, False)
         except:
             pass
+
+
+def _tag_stub_line(line, member_type):
+    if not line or not member_type:
+        return
+    try:
+        attrs = line.attributes
+    except:
+        attrs = None
+    if not attrs:
+        return
+    try:
+        existing = attrs.itemByName(STUB_MEMBER_ATTR_GROUP, STUB_MEMBER_ATTR_NAME)
+        if existing:
+            existing.value = member_type
+        else:
+            attrs.add(STUB_MEMBER_ATTR_GROUP, STUB_MEMBER_ATTR_NAME, member_type)
+    except:
+        pass
 
 
 def _dist2_2d(a, b):
@@ -1332,6 +1353,30 @@ def _get_or_create_stub_component(root):
         return None
 
 
+def _component_label_for_body(body):
+    if not body:
+        return "<unnamed>"
+    try:
+        occ = getattr(body, "assemblyContext", None)
+        if occ and occ.component and occ.component.name:
+            return occ.component.name
+    except:
+        pass
+    try:
+        comp = body.parentComponent
+        if comp and comp.name:
+            return comp.name
+    except:
+        pass
+    try:
+        name = body.name
+        if name:
+            return name
+    except:
+        pass
+    return "<unnamed>"
+
+
 def _create_stub_sketch(stub_comp, face, root):
     if not stub_comp:
         return None
@@ -1496,7 +1541,7 @@ def _execute(args):
 
     for face in faces:
         body = face.body
-        label = body.name or "<unnamed>"
+        label = _component_label_for_body(body)
         plane = _get_face_plane(face)
         if not plane:
             _dbg(f"Skip body='{label}': selected face not planar")
@@ -1646,7 +1691,7 @@ def _execute(args):
             cols_skipped.append(label)
             continue
         try:
-            sk.name = _next_sketch_name(stub_comp, f"StubArms {label}")
+            sk.name = _next_sketch_name(stub_comp, f"Stub Arms - {label}")
         except:
             pass
         _disable_sketch_profiles(sk)
@@ -1661,15 +1706,17 @@ def _execute(args):
                 upper_sk = upper
                 lower_sk = lower
                 hit_sk = hit
-            lines.addByTwoPoints(upper_sk, hit_sk)
+            upper_line = lines.addByTwoPoints(upper_sk, hit_sk)
+            _tag_stub_line(upper_line, "FlatBar")
             if draw_lower:
-                lines.addByTwoPoints(lower_sk, hit_sk)
+                lower_line = lines.addByTwoPoints(lower_sk, hit_sk)
+                _tag_stub_line(lower_line, "EA")
                 lines_created += 2
             else:
                 lines_created += 1
 
     for body in bodies:
-        label = body.name or "<unnamed>"
+        label = _component_label_for_body(body)
         face = _choose_column_face(body, root, wall_faces, wall_center_sketches)
         if not face:
             _dbg(f"Skip body='{label}': no suitable side face")
@@ -1794,7 +1841,7 @@ def _execute(args):
             cols_skipped.append(label)
             continue
         try:
-            sk.name = _next_sketch_name(stub_comp, f"StubArms {label}")
+            sk.name = _next_sketch_name(stub_comp, f"Stub Arms - {label}")
         except:
             pass
         _disable_sketch_profiles(sk)
@@ -1809,9 +1856,11 @@ def _execute(args):
                 upper_sk = upper
                 lower_sk = lower
                 hit_sk = hit
-            lines.addByTwoPoints(upper_sk, hit_sk)
+            upper_line = lines.addByTwoPoints(upper_sk, hit_sk)
+            _tag_stub_line(upper_line, "FlatBar")
             if draw_lower:
-                lines.addByTwoPoints(lower_sk, hit_sk)
+                lower_line = lines.addByTwoPoints(lower_sk, hit_sk)
+                _tag_stub_line(lower_line, "EA")
                 lines_created += 2
             else:
                 lines_created += 1
