@@ -63,3 +63,20 @@ Suggestions to resume / fix if still missing wall hits
 - Wall selection supports faces, bodies, and occurrences; column selection supports faces, bodies, and occurrences with auto side-face pick.
 - Added stub arm lines component under root to hold all stub arm sketches.
 - Added wall clearance input to shift the lower connection point up; if it cannot clear, only the upper line is drawn.
+
+## 2026-01-23
+- Stub Arms To Wall now enforces 700-1000 mm spacing between connection points by auto-adjusting point count per column span.
+- Added min/max spacing inputs to the Stub Arms UI (defaults 700/1000 mm).
+- Added Stub Arms Beta command with faster on-face validation and reduced sketch usage.
+- Promoted the optimized Beta logic to the default Stub Arms tool and retired the separate Beta command.
+- Stub Arms Export now totals brackets, blocks, bolts/nuts, and screws using the new bracket angle tagging.
+- Bracket type classification now compares wall normal to the actual stub arm direction in XY (fallback to line direction).
+- Wall hit selection now prefers hits that keep the upper stub arm above (based on column axis projection).
+- Bracket tagging now applies to native sketch lines; export uses bracket type even if anchor is missing.
+- Fixed Stub Arms export loop so stock/bracket totals write for every line.
+- Bracket angle now uses absolute XY/3D comparisons and defaults to swivel when ambiguous.
+- Bracket type now uses wall normal at the hit point (fallback to plane normal).
+- Added guard to coerce wall normals when Fusion returns lists/tuples.
+- Stub Arms now tags column labels on lines; export reads label attributes and defaults missing bracket tags to swivel.
+- Stub Arms now prefers component name for sketch/column labels (falls back to occurrence name).
+- Bracket classification now uses abs(dot) in XY with 3D fallback; defaults to swivel if angle can't be computed.

@@ -23,6 +23,9 @@ STOCK_MAX_MM = 1800
 STOCK_STEP_MM = 200
 STUB_MEMBER_ATTR_GROUP = "PhilsDesignTools"
 STUB_MEMBER_ATTR_NAME = "StubMemberType"
+STUB_BRACKET_ATTR_NAME = "StubBracketType"
+STUB_BRACKET_ANCHOR_ATTR_NAME = "StubBracketAnchor"
+STUB_COLUMN_ATTR_NAME = "StubColumnLabel"
 
 
 class StubArmsExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -243,6 +246,9 @@ def _round_to_stock_oversize(mm_val):
 
 
 def _column_label_for_line(line):
+    attr_label = _get_line_attr_value(line, STUB_COLUMN_ATTR_NAME)
+    if attr_label:
+        return str(attr_label).strip()
     try:
         sk = line.parentSketch
     except:
@@ -351,6 +357,59 @@ def _get_line_member_attr(line):
     return None
 
 
+def _get_line_attr_value(line, attr_name):
+    if not line or not attr_name:
+        return None
+    candidates = [line]
+    try:
+        native = line.nativeObject
+        if native:
+            candidates.append(native)
+    except:
+        pass
+    for candidate in candidates:
+        try:
+            attrs = candidate.attributes
+        except:
+            attrs = None
+        if not attrs:
+            continue
+        try:
+            attr = attrs.itemByName(STUB_MEMBER_ATTR_GROUP, attr_name)
+        except:
+            attr = None
+        if not attr:
+            continue
+        try:
+            value = attr.value
+        except:
+            value = None
+        if value:
+            return value
+    return None
+
+
+def _is_bracket_anchor(line):
+    val = _get_line_attr_value(line, STUB_BRACKET_ANCHOR_ATTR_NAME)
+    if not val:
+        return False
+    return str(val).strip().lower() in ("1", "true", "yes", "y")
+
+
+def _get_bracket_type(line):
+    val = _get_line_attr_value(line, STUB_BRACKET_ATTR_NAME)
+    if not val:
+        return None
+    val = str(val).strip().lower()
+    if val in ("square", "sq"):
+        return "square"
+    if val in ("swivel", "swivel_bracket", "swivel bracket", "sw"):
+        return "swivel"
+    if val == "unknown":
+        return "swivel"
+    return "unknown"
+
+
 def _classify_lines(lines, um):
     line_types = {}
     line_by_key = {}
@@ -452,6 +511,11 @@ def _execute(args):
     detail_entries = []
     total = 0
     line_types = _classify_lines(lines, um)
+    bracket_square = 0
+    bracket_swivel = 0
+    bracket_unknown = 0
+    bracket_total = 0
+    flatbar_lines = 0
 
     for line in lines:
         try:
@@ -469,6 +533,18 @@ def _execute(args):
             continue
         total += 1
         line_key = _line_key(line)
+        btype = _get_bracket_type(line)
+        is_anchor = _is_bracket_anchor(line)
+        if is_anchor and btype is None:
+            btype = "swivel"
+        if is_anchor or btype is not None:
+            bracket_total += 1
+            if btype == "square":
+                bracket_square += 1
+            elif btype == "swivel":
+                bracket_swivel += 1
+            else:
+                bracket_unknown += 1
         stock = _round_to_stock(mm)
         line_type = line_types.get(line_key, "flat")
         if line_type == "ea":
@@ -479,6 +555,7 @@ def _execute(args):
             stock_counts = stock_counts_flat
             manual_counts = manual_counts_flat
             member_type = "FlatBar"
+            flatbar_lines += 1
         if stock is None:
             mm_key = int(round(_round_to_stock_oversize(mm)))
             manual_counts[mm_key] = manual_counts.get(mm_key, 0) + 1
@@ -491,6 +568,10 @@ def _execute(args):
             detail_entries.append(
                 (_column_label_for_line(line), z_mid, stock_len, label, member_type)
             )
+
+    if bracket_total == 0 and flatbar_lines > 0:
+        bracket_unknown = flatbar_lines
+        bracket_total = flatbar_lines
 
     if total == 0:
         ctx.ui().messageBox("No valid stub arm lines found.")
@@ -524,6 +605,17 @@ def _execute(args):
     rows.append(["Flat bar Larger profile required (mm)", "Quantity"])
     for length in sorted(manual_counts_flat.keys()):
         rows.append([length, manual_counts_flat[length]])
+    rows.append([])
+    rows.append(["Brackets", "Quantity"])
+    rows.append(["Square bracket", bracket_square])
+    rows.append(["Swivel bracket", bracket_swivel])
+    if bracket_unknown:
+        rows.append(["Unknown bracket (no angle tag)", bracket_unknown])
+    rows.append([])
+    rows.append(["Spacer blocks", bracket_total])
+    rows.append(["Bracket bolts + nylock nuts (M10x40)", bracket_total])
+    rows.append(["Block screws (40mm timber)", bracket_total * 4])
+    rows.append(["Stub arm screws (S500)", total * 3])
     if include_details:
         rows.append([])
         rows.append(["Column", "Position", "Stock length (mm)", "Profile size", "Member"])
@@ -548,6 +640,11 @@ def _execute(args):
             "manual_sizes_ea": len(manual_counts_ea),
             "stock_sizes_flat": len(stock_counts_flat),
             "manual_sizes_flat": len(manual_counts_flat),
+            "brackets_square": bracket_square,
+            "brackets_swivel": bracket_swivel,
+            "brackets_unknown": bracket_unknown,
+            "brackets_total": bracket_total,
+            "stub_arm_screws": total * 3,
             "visible_only": visible_only,
             "detail_breakdown": include_details,
             "output": out_path,

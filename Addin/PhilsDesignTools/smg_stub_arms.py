@@ -1,4 +1,4 @@
-﻿import adsk.core, adsk.fusion, traceback, os
+import adsk.core, adsk.fusion, traceback, os, math
 import smg_context as ctx
 import smg_logger as logger
 
@@ -10,12 +10,18 @@ RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 STUB_LINES_COMPONENT_NAME = "Stub arm lines"
 STUB_MEMBER_ATTR_GROUP = "PhilsDesignTools"
 STUB_MEMBER_ATTR_NAME = "StubMemberType"
+STUB_BRACKET_ATTR_NAME = "StubBracketType"
+STUB_BRACKET_ANCHOR_ATTR_NAME = "StubBracketAnchor"
+BRACKET_SQUARE_TOL_DEG = 3.0
+STUB_POINT_MIN_MM = 700.0
+STUB_POINT_MAX_MM = 1000.0
 
 TOL = 1e-6
 ANGLE_TOL = 1e-3
-DEBUG_STUB_ARMS = True
-DEBUG_WALL_MARKERS = True
+DEBUG_STUB_ARMS = False
+DEBUG_WALL_MARKERS = False
 DEBUG_PROFILE_TEST = False
+USE_SKETCH_FALLBACK = True
 
 
 class StubArmsExecuteHandler(adsk.core.CommandEventHandler):
@@ -76,6 +82,8 @@ class StubArmsCreatedHandler(adsk.core.CommandCreatedEventHandler):
             def v(mm):
                 return adsk.core.ValueInput.createByString(f"{mm} mm")
 
+            inputs.addValueInput("stub_min_spacing", "Min spacing", length_units, v(STUB_POINT_MIN_MM))
+            inputs.addValueInput("stub_max_spacing", "Max spacing", length_units, v(STUB_POINT_MAX_MM))
             inputs.addValueInput("stub_bottom", "Bottom offset", length_units, v(500.0))
             inputs.addValueInput("stub_top", "Top offset", length_units, v(150.0))
             inputs.addValueInput("stub_clearance", "Wall clearance", length_units, v(200.0))
@@ -211,6 +219,22 @@ def _axis_endpoints(body, axis):
     axis_vec.normalize()
     length = bottom.distanceTo(top)
     return axis_vec, bottom, top, length
+
+
+def _resolve_point_spacing(span, desired_count, min_spacing_u, max_spacing_u):
+    min_count = max(2, int(math.ceil(span / max_spacing_u)) + 1)
+    max_count = max(2, int(math.floor(span / min_spacing_u)) + 1)
+    count = desired_count if desired_count and desired_count > 1 else min_count
+    adjusted = False
+    if count < min_count:
+        count = min_count
+        adjusted = True
+    elif count > max_count:
+        count = max_count
+        adjusted = True
+    spacing = span / float(count - 1) if count > 1 else None
+    in_range = spacing is not None and (min_spacing_u - TOL) <= spacing <= (max_spacing_u + TOL)
+    return count, spacing, adjusted, min_count, max_count, in_range
 
 
 def _looks_like_rhs_shs(body, axis_dir):
@@ -365,23 +389,107 @@ def _disable_sketch_profiles(sketch):
             pass
 
 
-def _tag_stub_line(line, member_type):
-    if not line or not member_type:
+def _set_attr(entity, group, name, value):
+    if not entity or value is None:
         return
     try:
-        attrs = line.attributes
+        attrs = entity.attributes
     except:
-        attrs = None
+        return
     if not attrs:
         return
     try:
-        existing = attrs.itemByName(STUB_MEMBER_ATTR_GROUP, STUB_MEMBER_ATTR_NAME)
+        existing = attrs.itemByName(group, name)
         if existing:
-            existing.value = member_type
-        else:
-            attrs.add(STUB_MEMBER_ATTR_GROUP, STUB_MEMBER_ATTR_NAME, member_type)
+            existing.value = str(value)
+            return
     except:
         pass
+    try:
+        attrs.add(group, name, str(value))
+    except:
+        pass
+
+
+def _tag_stub_line(line, member_type):
+    if not line or not member_type:
+        return
+    _set_attr(line, STUB_MEMBER_ATTR_GROUP, STUB_MEMBER_ATTR_NAME, member_type)
+    try:
+        native = line.nativeObject
+    except:
+        native = None
+    if native:
+        _set_attr(native, STUB_MEMBER_ATTR_GROUP, STUB_MEMBER_ATTR_NAME, member_type)
+
+
+def _tag_stub_bracket(line, bracket_type, anchor):
+    if not line or not bracket_type:
+        return
+    _set_attr(line, STUB_MEMBER_ATTR_GROUP, STUB_BRACKET_ATTR_NAME, bracket_type)
+    try:
+        native = line.nativeObject
+    except:
+        native = None
+    if native:
+        _set_attr(native, STUB_MEMBER_ATTR_GROUP, STUB_BRACKET_ATTR_NAME, bracket_type)
+    if anchor:
+        _set_attr(line, STUB_MEMBER_ATTR_GROUP, STUB_BRACKET_ANCHOR_ATTR_NAME, "1")
+        if native:
+            _set_attr(native, STUB_MEMBER_ATTR_GROUP, STUB_BRACKET_ANCHOR_ATTR_NAME, "1")
+
+
+def _angle_deg_between_normals_xy(n1, n2):
+    if not n1 or not n2:
+        return None
+    v1 = adsk.core.Vector3D.create(n1.x, n1.y, 0.0)
+    v2 = adsk.core.Vector3D.create(n2.x, n2.y, 0.0)
+    if v1.length < TOL or v2.length < TOL:
+        return None
+    v1.normalize()
+    v2.normalize()
+    dot = max(-1.0, min(1.0, v1.dotProduct(v2)))
+    dot = abs(dot)
+    return math.degrees(math.acos(dot))
+
+
+def _angle_deg_between_vectors_3d(v1, v2):
+    if not v1 or not v2:
+        return None
+    a = adsk.core.Vector3D.create(v1.x, v1.y, v1.z)
+    b = adsk.core.Vector3D.create(v2.x, v2.y, v2.z)
+    if a.length < TOL or b.length < TOL:
+        return None
+    a.normalize()
+    b.normalize()
+    dot = max(-1.0, min(1.0, a.dotProduct(b)))
+    dot = abs(dot)
+    return math.degrees(math.acos(dot))
+
+
+def _bracket_type_for_faces(wall_entry, arm_dir, fallback_dir=None):
+    if not wall_entry:
+        return "swivel"
+    wall_face = wall_entry.get("asm") if isinstance(wall_entry, dict) else wall_entry
+    wall_plane = _get_face_plane(wall_face)
+    if not wall_plane or not wall_plane.normal:
+        return "swivel"
+    wall_n = wall_plane.normal
+    if not wall_n:
+        return "swivel"
+    angle = None
+    if arm_dir:
+        angle = _angle_deg_between_normals_xy(arm_dir, wall_n)
+    if angle is None and fallback_dir:
+        angle = _angle_deg_between_normals_xy(fallback_dir, wall_n)
+    if angle is None:
+        base_dir = arm_dir if arm_dir else fallback_dir
+        angle = _angle_deg_between_vectors_3d(base_dir, wall_n)
+    if angle is None:
+        return "swivel"
+    if angle <= BRACKET_SQUARE_TOL_DEG:
+        return "square"
+    return "swivel"
 
 
 def _dist2_2d(a, b):
@@ -937,6 +1045,7 @@ def _intersect_ray_with_faces_onface(origin, direction, faces, sk_cache):
     best_entry = None
     if not faces:
         return None, None
+    use_sketch = USE_SKETCH_FALLBACK and sk_cache is not None
     for entry in faces:
         face = entry.get("asm") if isinstance(entry, dict) else entry
         if not face:
@@ -944,9 +1053,12 @@ def _intersect_ray_with_faces_onface(origin, direction, faces, sk_cache):
         hit = _intersect_ray_with_face(face, origin, direction)
         if not hit:
             continue
-        sk = _get_wall_center_sketch(ctx.app().activeProduct.rootComponent, entry, sk_cache)
-        if not sk or not _is_point_inside_sketch_profile(sk, hit):
-            continue
+        if not _is_point_on_face(face, hit):
+            if not use_sketch:
+                continue
+            sk = _get_wall_center_sketch(ctx.app().activeProduct.rootComponent, entry, sk_cache)
+            if not sk or not _is_point_inside_sketch_profile(sk, hit):
+                continue
         v = adsk.core.Vector3D.create(
             hit.x - origin.x,
             hit.y - origin.y,
@@ -1492,13 +1604,23 @@ def _execute(args):
 
     bottom_mm = mm_val("stub_bottom")
     top_mm = mm_val("stub_top")
-    count = count_in.value if count_in else 6
+    desired_count = count_in.value if count_in else 6
+    min_mm = mm_val("stub_min_spacing")
+    max_mm = mm_val("stub_max_spacing")
+    if min_mm <= 0 or max_mm <= 0:
+        ctx.ui().messageBox("Min/Max spacing must be greater than 0 mm.")
+        return
+    if min_mm > max_mm:
+        ctx.ui().messageBox("Min spacing must be less than or equal to max spacing.")
+        return
 
     bottom_u = um.convert(bottom_mm, "mm", um.internalUnits)
     top_u = um.convert(top_mm, "mm", um.internalUnits)
     clearance_mm = mm_val("stub_clearance")
     clearance_u = um.convert(clearance_mm, "mm", um.internalUnits)
     default_line_len = um.convert(100.0, "mm", um.internalUnits)
+    min_spacing_u = um.convert(min_mm, "mm", um.internalUnits)
+    max_spacing_u = um.convert(max_mm, "mm", um.internalUnits)
 
     faces, bodies = _collect_column_faces(sel_cols, root)
     if not faces and not bodies:
@@ -1509,26 +1631,32 @@ def _execute(args):
         ctx.ui().messageBox("No valid wall faces selected.")
         return
 
-    _dbg(f"Selected faces={len(faces)}, wall_faces={len(wall_faces)}, points={count}")
+    _dbg(
+        f"Selected faces={len(faces)}, wall_faces={len(wall_faces)}, "
+        f"points={desired_count}, spacing_mm=[{min_mm},{max_mm}]"
+    )
 
     logger.log_command(
         CMD_NAME,
         {
             "faces": len(faces),
             "wall_faces": len(wall_faces),
-            "points": count,
+            "points_requested": desired_count,
+            "min_spacing_mm": min_mm,
+            "max_spacing_mm": max_mm,
             "bottom_mm": bottom_mm,
             "top_mm": top_mm,
         },
     )
 
-    wall_center_sketches = {}
+    use_wall_sketches = USE_SKETCH_FALLBACK or DEBUG_WALL_MARKERS
+    wall_center_sketches = {} if use_wall_sketches else None
     stub_comp = _get_or_create_stub_component(root)
     if not stub_comp:
         ctx.ui().messageBox("Failed to create or find 'stub arm lines' component.")
         return
     hit_marker_radius_u = None
-    if DEBUG_WALL_MARKERS:
+    if DEBUG_WALL_MARKERS and wall_center_sketches is not None:
         hit_marker_radius_u = um.convert(6.0, "mm", um.internalUnits)
         for entry in wall_faces:
             sk = _get_wall_center_sketch(root, entry, wall_center_sketches)
@@ -1563,15 +1691,32 @@ def _execute(args):
         comp_axes = _component_axes(body, root)
 
         span = length - bottom_u - top_u
-        if count < 2 or span <= TOL:
-            _dbg(f"Skip body='{label}': span={span:.4f} count={count}")
+        if span <= TOL:
+            _dbg(f"Skip body='{label}': span={span:.4f}")
             cols_skipped.append(label)
             continue
-        spacing = span / float(count - 1)
-        if spacing <= TOL:
-            _dbg(f"Skip body='{label}': spacing={spacing:.4f}")
+        count, spacing, adjusted, _, _, in_range = _resolve_point_spacing(
+            span, desired_count, min_spacing_u, max_spacing_u
+        )
+        if count < 2 or not spacing or spacing <= TOL:
+            _dbg(f"Skip body='{label}': spacing={spacing} count={count}")
             cols_skipped.append(label)
             continue
+        if not in_range:
+            spacing_mm = um.convert(spacing, um.internalUnits, "mm")
+            span_mm = um.convert(span, um.internalUnits, "mm")
+            _dbg(
+                f"Skip body='{label}': spacing_mm={spacing_mm:.1f} "
+                f"outside [{min_mm},{max_mm}] span_mm={span_mm:.1f}"
+            )
+            cols_skipped.append(label)
+            continue
+        if adjusted:
+            spacing_mm = um.convert(spacing, um.internalUnits, "mm")
+            _dbg(
+                f"Body='{label}': adjusted points {desired_count}->{count} "
+                f"spacing_mm={spacing_mm:.1f}"
+            )
 
         points = []
         for i in range(count):
@@ -1680,7 +1825,13 @@ def _execute(args):
             lower_adj, draw_lower = _adjust_lower_for_clearance(
                 lower, upper, hit, axis_dir, wall_faces, wall_center_sketches, clearance_u
             )
-            pair_hits.append((i, lower_adj, upper, hit, draw_lower))
+            arm_dir = adsk.core.Vector3D.create(
+                hit.x - upper.x,
+                hit.y - upper.y,
+                hit.z - upper.z,
+            )
+            bracket_type = _bracket_type_for_faces(hit_entry, arm_dir, line_dir)
+            pair_hits.append((i, lower_adj, upper, hit, draw_lower, bracket_type))
 
         if not pair_hits:
             continue
@@ -1697,7 +1848,7 @@ def _execute(args):
         _disable_sketch_profiles(sk)
         lines = sk.sketchCurves.sketchLines
 
-        for _, lower, upper, hit, draw_lower in pair_hits:
+        for _, lower, upper, hit, draw_lower, bracket_type in pair_hits:
             try:
                 upper_sk = sk.modelToSketchSpace(upper)
                 lower_sk = sk.modelToSketchSpace(lower)
@@ -1708,6 +1859,7 @@ def _execute(args):
                 hit_sk = hit
             upper_line = lines.addByTwoPoints(upper_sk, hit_sk)
             _tag_stub_line(upper_line, "FlatBar")
+            _tag_stub_bracket(upper_line, bracket_type, True)
             if draw_lower:
                 lower_line = lines.addByTwoPoints(lower_sk, hit_sk)
                 _tag_stub_line(lower_line, "EA")
@@ -1740,15 +1892,32 @@ def _execute(args):
 
         comp_axes = _component_axes(body, root)
         span = length - bottom_u - top_u
-        if count < 2 or span <= TOL:
-            _dbg(f"Skip body='{label}': span={span:.4f} count={count}")
+        if span <= TOL:
+            _dbg(f"Skip body='{label}': span={span:.4f}")
             cols_skipped.append(label)
             continue
-        spacing = span / float(count - 1)
-        if spacing <= TOL:
-            _dbg(f"Skip body='{label}': spacing={spacing:.4f}")
+        count, spacing, adjusted, _, _, in_range = _resolve_point_spacing(
+            span, desired_count, min_spacing_u, max_spacing_u
+        )
+        if count < 2 or not spacing or spacing <= TOL:
+            _dbg(f"Skip body='{label}': spacing={spacing} count={count}")
             cols_skipped.append(label)
             continue
+        if not in_range:
+            spacing_mm = um.convert(spacing, um.internalUnits, "mm")
+            span_mm = um.convert(span, um.internalUnits, "mm")
+            _dbg(
+                f"Skip body='{label}': spacing_mm={spacing_mm:.1f} "
+                f"outside [{min_mm},{max_mm}] span_mm={span_mm:.1f}"
+            )
+            cols_skipped.append(label)
+            continue
+        if adjusted:
+            spacing_mm = um.convert(spacing, um.internalUnits, "mm")
+            _dbg(
+                f"Body='{label}': adjusted points {desired_count}->{count} "
+                f"spacing_mm={spacing_mm:.1f}"
+            )
 
         points = []
         for i in range(count):
@@ -1830,7 +1999,13 @@ def _execute(args):
             lower_adj, draw_lower = _adjust_lower_for_clearance(
                 lower, upper, hit, axis_dir, wall_faces, wall_center_sketches, clearance_u
             )
-            pair_hits.append((i, lower_adj, upper, hit, draw_lower))
+            arm_dir = adsk.core.Vector3D.create(
+                hit.x - upper.x,
+                hit.y - upper.y,
+                hit.z - upper.z,
+            )
+            bracket_type = _bracket_type_for_faces(hit_entry, arm_dir, line_dir)
+            pair_hits.append((i, lower_adj, upper, hit, draw_lower, bracket_type))
 
         if not pair_hits:
             continue
@@ -1847,7 +2022,7 @@ def _execute(args):
         _disable_sketch_profiles(sk)
         lines = sk.sketchCurves.sketchLines
 
-        for _, lower, upper, hit, draw_lower in pair_hits:
+        for _, lower, upper, hit, draw_lower, bracket_type in pair_hits:
             try:
                 upper_sk = sk.modelToSketchSpace(upper)
                 lower_sk = sk.modelToSketchSpace(lower)
@@ -1858,6 +2033,7 @@ def _execute(args):
                 hit_sk = hit
             upper_line = lines.addByTwoPoints(upper_sk, hit_sk)
             _tag_stub_line(upper_line, "FlatBar")
+            _tag_stub_bracket(upper_line, bracket_type, True)
             if draw_lower:
                 lower_line = lines.addByTwoPoints(lower_sk, hit_sk)
                 _tag_stub_line(lower_line, "EA")
@@ -1865,11 +2041,12 @@ def _execute(args):
             else:
                 lines_created += 1
 
-    for sk in wall_center_sketches.values():
-        try:
-            sk.deleteMe()
-        except:
-            pass
+    if wall_center_sketches:
+        for sk in wall_center_sketches.values():
+            try:
+                sk.deleteMe()
+            except:
+                pass
 
     try:
         ctx.app().activeViewport.refresh()
