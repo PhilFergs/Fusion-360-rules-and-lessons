@@ -4,6 +4,7 @@ import traceback
 import csv
 import os
 import math
+import json
 
 import smg_context as ctx
 import smg_logger as logger
@@ -23,6 +24,13 @@ STOCK_MAX_MM = 1800
 STOCK_STEP_MM = 200
 STUB_MEMBER_ATTR_GROUP = "PhilsDesignTools"
 STUB_MEMBER_ATTR_NAME = "StubMemberType"
+STUB_BRACKET_ATTR_NAME = "StubBracketType"
+STUB_BRACKET_ANCHOR_ATTR_NAME = "StubBracketAnchor"
+STUB_COLUMN_ATTR_NAME = "StubColumnLabel"
+STUB_BRACKET_ATTR_MAP_NAME = "StubBracketTypeMap"
+STUB_BRACKET_ANCHOR_MAP_NAME = "StubBracketAnchorMap"
+DEBUG_STUB_ARMS_EXPORT = True
+DEBUG_STUB_ARMS_EXPORT_SAMPLE = 10
 
 
 class StubArmsExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -243,6 +251,9 @@ def _round_to_stock_oversize(mm_val):
 
 
 def _column_label_for_line(line):
+    attr_label = _get_line_attr_value(line, STUB_COLUMN_ATTR_NAME)
+    if attr_label:
+        return str(attr_label).strip()
     try:
         sk = line.parentSketch
     except:
@@ -256,6 +267,9 @@ def _column_label_for_line(line):
     prefix = "Stub Arms - "
     if name.startswith(prefix):
         trimmed = name[len(prefix):].strip()
+        for suffix in (" - square", " - swivel"):
+            if trimmed.lower().endswith(suffix):
+                trimmed = trimmed[: -len(suffix)].strip()
         return trimmed if trimmed else name
     return name if name else "Unknown"
 
@@ -349,6 +363,165 @@ def _get_line_member_attr(line):
     if val in ("flatbar", "flat", "flat_bar", "flat bar"):
         return "flat"
     return None
+
+
+def _get_line_attr_direct(line, attr_name):
+    if not line or not attr_name:
+        return None
+    candidates = [line]
+    try:
+        native = line.nativeObject
+        if native:
+            candidates.append(native)
+    except:
+        pass
+    for candidate in candidates:
+        try:
+            attrs = candidate.attributes
+        except:
+            attrs = None
+        if not attrs:
+            continue
+        try:
+            attr = attrs.itemByName(STUB_MEMBER_ATTR_GROUP, attr_name)
+        except:
+            attr = None
+        if not attr:
+            continue
+        try:
+            value = attr.value
+        except:
+            value = None
+        if value:
+            return value
+    return None
+
+
+def _get_line_attr_value(line, attr_name):
+    val = _get_line_attr_direct(line, attr_name)
+    if val:
+        return val
+    if attr_name == STUB_BRACKET_ATTR_NAME:
+        return _get_line_map_value(line, STUB_BRACKET_ATTR_MAP_NAME)
+    if attr_name == STUB_BRACKET_ANCHOR_ATTR_NAME:
+        return _get_line_map_value(line, STUB_BRACKET_ANCHOR_MAP_NAME)
+    return None
+
+
+def _get_attr_map(entity, map_name):
+    if not entity or not map_name:
+        return {}
+    try:
+        attrs = entity.attributes
+    except:
+        return {}
+    if not attrs:
+        return {}
+    try:
+        attr = attrs.itemByName(STUB_MEMBER_ATTR_GROUP, map_name)
+    except:
+        attr = None
+    if not attr:
+        return {}
+    try:
+        raw = attr.value
+    except:
+        raw = None
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return data
+    except:
+        pass
+    data = {}
+    for line in str(raw).splitlines():
+        line = line.strip()
+        if not line or "=" not in line:
+            continue
+        key, val = line.split("=", 1)
+        data[key] = val
+    return data
+
+
+def _line_map_key(entity):
+    if not entity:
+        return None
+    tok = _safe_entity_token(entity)
+    if tok:
+        return tok
+    return f"id:{id(entity)}"
+
+
+def _get_line_map_value(line, map_name):
+    if not line or not map_name:
+        return None
+    try:
+        sk = line.parentSketch
+    except:
+        sk = None
+    comp = None
+    if sk:
+        try:
+            comp = sk.parentComponent
+        except:
+            comp = None
+    owners = [sk, comp]
+    for owner in owners:
+        if not owner:
+            continue
+        data = _get_attr_map(owner, map_name)
+        if not data:
+            continue
+        key = _line_map_key(line)
+        if key and key in data:
+            return data[key]
+        try:
+            native = line.nativeObject
+        except:
+            native = None
+        if native:
+            key = _line_map_key(native)
+            if key and key in data:
+                return data[key]
+    return None
+
+
+def _is_bracket_anchor(line):
+    val = _get_line_attr_value(line, STUB_BRACKET_ANCHOR_ATTR_NAME)
+    if not val:
+        return False
+    return str(val).strip().lower() in ("1", "true", "yes", "y")
+
+
+def _get_bracket_type(line):
+    val = _get_line_attr_value(line, STUB_BRACKET_ATTR_NAME)
+    if not val:
+        try:
+            sk = line.parentSketch
+        except:
+            sk = None
+        name = ""
+        if sk:
+            try:
+                name = sk.name or ""
+            except:
+                name = ""
+        name = name.lower()
+        if "square" in name:
+            return "square"
+        if "swivel" in name:
+            return "swivel"
+        return None
+    val = str(val).strip().lower()
+    if val in ("square", "sq"):
+        return "square"
+    if val in ("swivel", "swivel_bracket", "swivel bracket", "sw"):
+        return "swivel"
+    if val == "unknown":
+        return "swivel"
+    return "unknown"
 
 
 def _classify_lines(lines, um):
@@ -452,6 +625,18 @@ def _execute(args):
     detail_entries = []
     total = 0
     line_types = _classify_lines(lines, um)
+    bracket_square = 0
+    bracket_swivel = 0
+    bracket_unknown = 0
+    bracket_total = 0
+    flatbar_lines = 0
+    missing_bracket_type = 0
+    missing_bracket_anchor = 0
+    map_type_hits = 0
+    map_anchor_hits = 0
+    direct_type_hits = 0
+    direct_anchor_hits = 0
+    missing_samples = []
 
     for line in lines:
         try:
@@ -469,8 +654,49 @@ def _execute(args):
             continue
         total += 1
         line_key = _line_key(line)
-        stock = _round_to_stock(mm)
         line_type = line_types.get(line_key, "flat")
+        if DEBUG_STUB_ARMS_EXPORT:
+            raw_type_direct = _get_line_attr_direct(line, STUB_BRACKET_ATTR_NAME)
+            raw_anchor_direct = _get_line_attr_direct(line, STUB_BRACKET_ANCHOR_ATTR_NAME)
+            map_type = _get_line_map_value(line, STUB_BRACKET_ATTR_MAP_NAME)
+            map_anchor = _get_line_map_value(line, STUB_BRACKET_ANCHOR_MAP_NAME)
+            if raw_type_direct is not None:
+                direct_type_hits += 1
+            if raw_anchor_direct is not None:
+                direct_anchor_hits += 1
+            if map_type is not None:
+                map_type_hits += 1
+            if map_anchor is not None:
+                map_anchor_hits += 1
+            raw_type = _get_line_attr_value(line, STUB_BRACKET_ATTR_NAME)
+            raw_anchor = _get_line_attr_value(line, STUB_BRACKET_ANCHOR_ATTR_NAME)
+            if raw_type is None:
+                missing_bracket_type += 1
+            if raw_anchor is None:
+                missing_bracket_anchor += 1
+            if (
+                (raw_type is None or raw_anchor is None)
+                and len(missing_samples) < DEBUG_STUB_ARMS_EXPORT_SAMPLE
+            ):
+                missing_samples.append(
+                    f"{line_key}|col={_column_label_for_line(line)}"
+                    f"|type={raw_type}|anchor={raw_anchor}"
+                )
+        btype = _get_bracket_type(line)
+        is_anchor = _is_bracket_anchor(line)
+        if is_anchor and btype is None:
+            btype = "swivel"
+        if line_type == "flat":
+            flatbar_lines += 1
+            if btype is not None or is_anchor:
+                bracket_total += 1
+                if btype == "square":
+                    bracket_square += 1
+                elif btype == "swivel":
+                    bracket_swivel += 1
+                else:
+                    bracket_unknown += 1
+        stock = _round_to_stock(mm)
         if line_type == "ea":
             stock_counts = stock_counts_ea
             manual_counts = manual_counts_ea
@@ -487,14 +713,33 @@ def _execute(args):
         if include_details:
             z_mid = (sp.z + ep.z) * 0.5
             stock_len = _round_to_stock_oversize(mm)
-            label = "larger" if mm > STOCK_MAX_MM else "standard"
+            label = "50x3" if stock_len > STOCK_MAX_MM else "40x3"
+            bracket_label = ""
+            if line_type == "flat":
+                if btype in ("square", "swivel"):
+                    bracket_label = btype.title()
+                else:
+                    bracket_label = "Unknown"
             detail_entries.append(
-                (_column_label_for_line(line), z_mid, stock_len, label, member_type)
+                (_column_label_for_line(line), z_mid, stock_len, label, member_type, bracket_label)
             )
+
+    if bracket_total == 0 and flatbar_lines > 0:
+        bracket_unknown = flatbar_lines
+        bracket_total = flatbar_lines
 
     if total == 0:
         ctx.ui().messageBox("No valid stub arm lines found.")
         return
+
+    if DEBUG_STUB_ARMS_EXPORT:
+        sample = "; ".join(missing_samples) if missing_samples else "none"
+        logger.log(
+            f"{CMD_NAME} DEBUG: lines={total} missing_bracket_type={missing_bracket_type} "
+            f"missing_bracket_anchor={missing_bracket_anchor} direct_type_hits={direct_type_hits} "
+            f"direct_anchor_hits={direct_anchor_hits} map_type_hits={map_type_hits} "
+            f"map_anchor_hits={map_anchor_hits} sample_missing={sample}"
+        )
 
     ui = ctx.ui()
     file_dlg = ui.createFileDialog()
@@ -509,32 +754,45 @@ def _execute(args):
     out_path = file_dlg.filename
 
     rows = []
-    rows.append(["EA stock length (mm)", "Quantity"])
+    rows.append(["EA 40x3 Stock lengths (mm)", "Quantity"])
     for size in sorted(stock_counts_ea.keys()):
         rows.append([size, stock_counts_ea[size]])
     rows.append([])
-    rows.append(["EA Larger profile required (mm)", "Quantity"])
+    rows.append(["EA Larger 50x3 required (mm)", "Quantity"])
     for length in sorted(manual_counts_ea.keys()):
         rows.append([length, manual_counts_ea[length]])
     rows.append([])
-    rows.append(["Flat bar stock length (mm)", "Quantity"])
+    rows.append(["Flat bar 40x3 Stock lengths (mm)", "Quantity"])
     for size in sorted(stock_counts_flat.keys()):
         rows.append([size, stock_counts_flat[size]])
     rows.append([])
-    rows.append(["Flat bar Larger profile required (mm)", "Quantity"])
+    rows.append(["Flat bar Larger 50x3 required (mm)", "Quantity"])
     for length in sorted(manual_counts_flat.keys()):
         rows.append([length, manual_counts_flat[length]])
+    rows.append([])
+    rows.append(["Brackets", "Quantity"])
+    rows.append(["Square bracket", bracket_square])
+    rows.append(["Swivel bracket", bracket_swivel])
+    if bracket_unknown:
+        rows.append(["Unknown bracket (no angle tag)", bracket_unknown])
+    rows.append([])
+    rows.append(["Spacer blocks", bracket_total])
+    rows.append(["Bracket bolts + nylock nuts (M10x40)", bracket_total])
+    rows.append(["Block screws (40mm timber)", bracket_total * 4])
+    rows.append(["Stub arm screws (S500)", total * 3])
     if include_details:
         rows.append([])
-        rows.append(["Column", "Position", "Stock length (mm)", "Profile size", "Member"])
+        rows.append(["Column", "Position", "Stock length (mm)", "Profile size", "Member", "Bracket"])
         by_column = {}
-        for col, z_mid, stock_len, label, member_type in detail_entries:
-            by_column.setdefault(col, []).append((z_mid, stock_len, label, member_type))
+        for col, z_mid, stock_len, label, member_type, bracket_label in detail_entries:
+            by_column.setdefault(col, []).append(
+                (z_mid, stock_len, label, member_type, bracket_label)
+            )
         for col in sorted(by_column.keys()):
             rows.append([f"Column {col}"])
             entries = sorted(by_column[col], key=lambda item: item[0])
             for idx, entry in enumerate(entries, start=1):
-                rows.append([col, idx, int(round(entry[1])), entry[2], entry[3]])
+                rows.append([col, idx, int(round(entry[1])), entry[2], entry[3], entry[4]])
 
     with open(out_path, "w", newline="") as f:
         csv.writer(f).writerows(rows)
@@ -548,6 +806,11 @@ def _execute(args):
             "manual_sizes_ea": len(manual_counts_ea),
             "stock_sizes_flat": len(stock_counts_flat),
             "manual_sizes_flat": len(manual_counts_flat),
+            "brackets_square": bracket_square,
+            "brackets_swivel": bracket_swivel,
+            "brackets_unknown": bracket_unknown,
+            "brackets_total": bracket_total,
+            "stub_arm_screws": total * 3,
             "visible_only": visible_only,
             "detail_breakdown": include_details,
             "output": out_path,

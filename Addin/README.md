@@ -17,7 +17,7 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - PhilsDesignTools panel: EA From Lines, SHS From Lines, RHS From Lines, Rotate Steel Member,
   Batch Rename, Split Body (Keep Side), Split Body Delete, EA Hole Export CSV,
   IGES Component Export, New Component Set, Wireframe From Body, Hole Cut From Face,
-  Stub Arms To Wall
+  Stub Arms To Wall, Stub Arms Export CSV, Stub Arms Set Bracket
 
 ## Tool instructions
 - EA From Lines: Select sketch lines, set flange/thickness/extra/holes/angle, then OK.
@@ -32,9 +32,12 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - New Component Set: Enter prefix, number range (for example 1-40), and suffix, then OK.
 - Wireframe From Body: Select solid bodies (6 faces), then OK to create centerline sketches and hide bodies.
 - Hole Cut From Face: Select a cylindrical hole face and a target body, then OK to cut.
-- Stub Arms To Wall: Select RHS column bodies and wall faces/bodies, set connection count and offsets, then OK.
+- Stub Arms To Wall: Optimized stub arms tool. Select RHS column bodies and wall faces/bodies, set connection count and offsets, then OK.
+- Stub Arms Export CSV: Select stub arm lines or sketches, choose export options, then save the CSV.
+- Stub Arms Set Bracket: Select stub arm lines, choose Square/Swivel, then OK to reclassify.
 
 ## Development notes
 - Update `Addin/CHANGELOG.md` (user-facing) and `Addin/DEVLOG.md` (working notes) with each change set.
 - Keep cache/log files out of git; see `Addin/.gitignore`.
 - Every new command must include debug logging (DEBUG flag + detailed failure reasons) alongside the standard command summary log.
+- Before modifying `Addin/PhilsDesignTools/smg_stub_arms.py`, create a timestamped backup in the same folder: `smg_stub_arms.py.bak-YYYYMMDD-HHMMSS`, and note the backup name in the chat.
