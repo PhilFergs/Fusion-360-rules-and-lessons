@@ -80,3 +80,36 @@ Suggestions to resume / fix if still missing wall hits
 - Stub Arms now tags column labels on lines; export reads label attributes and defaults missing bracket tags to swivel.
 - Stub Arms now prefers component name for sketch/column labels (falls back to occurrence name).
 - Bracket classification now uses abs(dot) in XY with 3D fallback; defaults to swivel if angle can't be computed.
+
+## 2026-01-27
+- Hole Cut From Face: switched to sketch + extrude cut on a plane normal to the hole axis (replacing temporary tool body + Combine) to avoid tool body reference loss.
+- Hole Cut From Face: added linked/read-only target component guard with a clear user message.
+- Hole Cut From Face: improved cutting plane creation by using `Plane.create` with a fallback to three-point plane creation.
+- Hole Cut From Face: set construction plane/sketch creation occurrence when cutting in an occurrence context and added explicit linked occurrence detection.
+- Hole Cut From Face: added DEBUG_HOLECUT logging for selection context, transforms, axis/center in world and target space, plane creation attempts, and sketch/extrude steps.
+- Hole Cut From Face: switched occurrence transforms to `transform2` (Fusion-recommended) and expanded matrix debug output via `Matrix3D.asArray()`.
+- Hole Cut From Face: temporarily activates the target occurrence before creating the construction plane/sketch and restores the previous active occurrence afterward.
+- Hole Cut From Face: expanded plane creation debug to log the actual exception traceback from `ConstructionPlanes.add`.
+- Added AGENTS.md guidance to proactively add logging for new issues/commands and allow incremental debug logging between attempts.
+- Hole Cut From Face: removed `setByPlane` (not supported in parametric) and now creates planes using `ConstructionPlanes.createInput(occurrence)` plus `setByThreePoints`.
+- Hole Cut From Face: avoid construction planes entirely by finding a planar face aligned with the hole axis, projecting the center onto that face, and sketching the cut there.
+- Hole Cut From Face: find the actual axis intersection on the target body using `findBRepUsingRay` (forward/backward) and use that hit point/face for the sketch; planar-scan fallback retained.
+- Hole Cut From Face: avoid selecting the face boundary profile by creating sketches without projected edges when possible and selecting the smallest profile near the circle center.
+- Hole Cut From Face: always restore the root component as the active edit target at the end of the command.
+- Hole Cut From Face: support multi-hole selection by allowing multiple cylindrical faces and cutting each valid one with per-hole logging and a skipped summary message.
+- Hole Cut From Face: fixed multi-hole logging crash (UnboundLocalError) by removing early references to per-hole variables before the loop.
+- Hole Cut From Face: support multi-target selection by associating each hole to the closest intersected selected body along the hole axis (per-target transforms + ray hits).
+- Hole Cut From Face: multi-target association now falls back to planar-face distance when ray hits fail, avoiding "no associated target hit" skips.
+- Hole Cut From Face: expanded debug logging to include per-hole indices, entity/context details, chosen target face hit data, extrude feature health, and participant body volume deltas.
+- Hole Cut From Face: fixed extrude "No target body" failures by setting participant bodies via `ObjectCollection` and using occurrence-context bodies when needed.
+- Hole Cut From Face: fixed `participantBodies` TypeError by passing a plain list (with occurrence-context body when available) instead of an `ObjectCollection`.
+- Hole Cut From Face: added pre-extrude context logging (active component/occurrence, sketch/profile context, and native vs occurrence participant bodies) to diagnose persistent "No target body" failures.
+- Hole Cut From Face: log target component body counts/names and skip `participantBodies` when only one body is present to avoid "No target body" compute failures.
+- Hole Cut From Face: expanded target bounds logs with component/occurrence names and added extrude-time reactivation + context logging to diagnose cross-component extrude creation.
+- Hole Cut From Face: added extrude collection/parent component identity logging (including `extrudes.parentComponent` and object ids) to diagnose features appearing in the wrong component.
+- Hole Cut From Face: when the target is an occurrence, create the sketch + extrude in the root component using occurrence-context faces/bodies to avoid features landing in the wrong component.
+- Hole Cut From Face: reverted root-mode extrudes (still failed) and now reset to root then activate the target occurrence before each cut, always setting participant bodies explicitly in the target component context.
+- Hole Cut From Face: for occurrence targets, create occurrence-context faces/bodies and transform the cut center into occurrence context before sketch/extrude to keep all inputs in the same context.
+- Hole Cut From Face: rolled back `smg_holecut.py` to the pre-multi-target snapshot (`.bak-20260127-115807`) after multi-target changes resulted in sketches but no cuts.
+- Hole Cut From Face: fixed a rollback regression where selection logging referenced `hole_body_ctx` before it existed (now logs hole count and first hole body/occurrence safely).
+- Added AGENTS.md workflow rules for edit-in-InDevelopment, deploy-to-active, repo sync at session start, linked component handling, and DEVLOG update requirement.
