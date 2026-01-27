@@ -3,3 +3,5 @@ __pycache__/
 desktop.ini
 TEST_LOG_WRITE.txt
 PhilsDesignTools.log
+_external/
+*.py.bak-*

@@ -38,9 +38,78 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Added Stub Arms To Wall command to create stub-arm sketch lines from RHS columns to wall faces.
 - Implemented debug logging and geometry diagnostics for the stub arms workflow.
 
+## 2026-01-21
+- Stub Arms To Wall rework: selection now uses a face for the column, sketch is created directly on that face in assembly context, and guide lines are drawn using modelToSketchSpace so they land on the selected face.
+- Fixed top/bottom offset inversion by enforcing world Z ordering on the axis endpoints before spacing.
+- Simplified face/axis detection to reduce drift; guide lines confirm spacing and offsets are now correct on the selected face.
+- Reintroduced wall selection + ray logic; added local/assembly transforms for wall faces and per-pair "no wall hit" debug logging (world + local ray origin/dir and wall normal).
+- Added stub arms triangle drawing using the midpoints between guide lines when a wall hit is found (guide lines remain for debugging).
+- Marked backup `Addin/PhilsDesignTools/smg_stub_arms.py.bak-Some what working model` as the reference snapshot that produces lines without face-bounds clipping.
+
+Current status
+- Guide lines are correct and in the right place, but wall hits are still missing for some linked wall faces.
+- Latest debug lines ("Missed pair ... mid_w/dir_w ... mid_l/dir_l ... wall_n_*") should appear in `Addin/PhilsDesignTools/PhilsDesignTools.log` after running the tool.
+
+Suggestions to resume / fix if still missing wall hits
+- Confirm Fusion is loading the latest add-in build (restart Fusion after deploy) and check the log for the "Missed pair" debug lines.
+- Use the logged world/local ray direction to verify rays are going outward from the selected face; if not, flip the direction or use the selected face normal directly.
+- If wall faces are from linked components, test with a native (non-linked) wall face to confirm whether occurrence transforms are still wrong.
+- Try intersecting against the wall face plane first, then check point-in-face as a fallback (bypass ray casting issues).
+- As a last resort, project the wall face to the sketch and intersect 2D lines to get hit points.
+
 ## 2026-01-22
 - Stub Arms To Wall finalized: on-face wall hit validation now uses projected boundary polygons (manual point-in-polygon) and removes guide lines.
 - Wall boundary sketches are created for validation and removed after the command completes.
 - Wall selection supports faces, bodies, and occurrences; column selection supports faces, bodies, and occurrences with auto side-face pick.
 - Added stub arm lines component under root to hold all stub arm sketches.
 - Added wall clearance input to shift the lower connection point up; if it cannot clear, only the upper line is drawn.
+
+## 2026-01-23
+- Stub Arms To Wall now enforces 700-1000 mm spacing between connection points by auto-adjusting point count per column span.
+- Added min/max spacing inputs to the Stub Arms UI (defaults 700/1000 mm).
+- Added Stub Arms Beta command with faster on-face validation and reduced sketch usage.
+- Promoted the optimized Beta logic to the default Stub Arms tool and retired the separate Beta command.
+- Stub Arms Export now totals brackets, blocks, bolts/nuts, and screws using the new bracket angle tagging.
+- Bracket type classification now compares wall normal to the actual stub arm direction in XY (fallback to line direction).
+- Wall hit selection now prefers hits that keep the upper stub arm above (based on column axis projection).
+- Bracket tagging now applies to native sketch lines; export uses bracket type even if anchor is missing.
+- Fixed Stub Arms export loop so stock/bracket totals write for every line.
+- Bracket angle now uses absolute XY/3D comparisons and defaults to swivel when ambiguous.
+- Bracket type now uses wall normal at the hit point (fallback to plane normal).
+- Added guard to coerce wall normals when Fusion returns lists/tuples.
+- Stub Arms now tags column labels on lines; export reads label attributes and defaults missing bracket tags to swivel.
+- Stub Arms now prefers component name for sketch/column labels (falls back to occurrence name).
+- Bracket classification now uses abs(dot) in XY with 3D fallback; defaults to swivel if angle can't be computed.
+
+## 2026-01-27
+- Hole Cut From Face: switched to sketch + extrude cut on a plane normal to the hole axis (replacing temporary tool body + Combine) to avoid tool body reference loss.
+- Hole Cut From Face: added linked/read-only target component guard with a clear user message.
+- Hole Cut From Face: improved cutting plane creation by using `Plane.create` with a fallback to three-point plane creation.
+- Hole Cut From Face: set construction plane/sketch creation occurrence when cutting in an occurrence context and added explicit linked occurrence detection.
+- Hole Cut From Face: added DEBUG_HOLECUT logging for selection context, transforms, axis/center in world and target space, plane creation attempts, and sketch/extrude steps.
+- Hole Cut From Face: switched occurrence transforms to `transform2` (Fusion-recommended) and expanded matrix debug output via `Matrix3D.asArray()`.
+- Hole Cut From Face: temporarily activates the target occurrence before creating the construction plane/sketch and restores the previous active occurrence afterward.
+- Hole Cut From Face: expanded plane creation debug to log the actual exception traceback from `ConstructionPlanes.add`.
+- Added AGENTS.md guidance to proactively add logging for new issues/commands and allow incremental debug logging between attempts.
+- Hole Cut From Face: removed `setByPlane` (not supported in parametric) and now creates planes using `ConstructionPlanes.createInput(occurrence)` plus `setByThreePoints`.
+- Hole Cut From Face: avoid construction planes entirely by finding a planar face aligned with the hole axis, projecting the center onto that face, and sketching the cut there.
+- Hole Cut From Face: find the actual axis intersection on the target body using `findBRepUsingRay` (forward/backward) and use that hit point/face for the sketch; planar-scan fallback retained.
+- Hole Cut From Face: avoid selecting the face boundary profile by creating sketches without projected edges when possible and selecting the smallest profile near the circle center.
+- Hole Cut From Face: always restore the root component as the active edit target at the end of the command.
+- Hole Cut From Face: support multi-hole selection by allowing multiple cylindrical faces and cutting each valid one with per-hole logging and a skipped summary message.
+- Hole Cut From Face: fixed multi-hole logging crash (UnboundLocalError) by removing early references to per-hole variables before the loop.
+- Hole Cut From Face: support multi-target selection by associating each hole to the closest intersected selected body along the hole axis (per-target transforms + ray hits).
+- Hole Cut From Face: multi-target association now falls back to planar-face distance when ray hits fail, avoiding "no associated target hit" skips.
+- Hole Cut From Face: expanded debug logging to include per-hole indices, entity/context details, chosen target face hit data, extrude feature health, and participant body volume deltas.
+- Hole Cut From Face: fixed extrude "No target body" failures by setting participant bodies via `ObjectCollection` and using occurrence-context bodies when needed.
+- Hole Cut From Face: fixed `participantBodies` TypeError by passing a plain list (with occurrence-context body when available) instead of an `ObjectCollection`.
+- Hole Cut From Face: added pre-extrude context logging (active component/occurrence, sketch/profile context, and native vs occurrence participant bodies) to diagnose persistent "No target body" failures.
+- Hole Cut From Face: log target component body counts/names and skip `participantBodies` when only one body is present to avoid "No target body" compute failures.
+- Hole Cut From Face: expanded target bounds logs with component/occurrence names and added extrude-time reactivation + context logging to diagnose cross-component extrude creation.
+- Hole Cut From Face: added extrude collection/parent component identity logging (including `extrudes.parentComponent` and object ids) to diagnose features appearing in the wrong component.
+- Hole Cut From Face: when the target is an occurrence, create the sketch + extrude in the root component using occurrence-context faces/bodies to avoid features landing in the wrong component.
+- Hole Cut From Face: reverted root-mode extrudes (still failed) and now reset to root then activate the target occurrence before each cut, always setting participant bodies explicitly in the target component context.
+- Hole Cut From Face: for occurrence targets, create occurrence-context faces/bodies and transform the cut center into occurrence context before sketch/extrude to keep all inputs in the same context.
+- Hole Cut From Face: rolled back `smg_holecut.py` to the pre-multi-target snapshot (`.bak-20260127-115807`) after multi-target changes resulted in sketches but no cuts.
+- Hole Cut From Face: fixed a rollback regression where selection logging referenced `hole_body_ctx` before it existed (now logs hole count and first hole body/occurrence safely).
+- Added AGENTS.md workflow rules for edit-in-InDevelopment, deploy-to-active, repo sync at session start, linked component handling, and DEVLOG update requirement.
