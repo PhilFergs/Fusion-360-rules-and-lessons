@@ -17,7 +17,7 @@ This repository now hosts the PhilsDesignTools add-in, which consolidates the EA
 - `Addin/WORKFLOW.md` - development and release workflow.
 - `archive/main` - archived rules, notes, and legacy zip releases from the former main branch.
 - `PhilsBom.bundle` - separate BOM export add-in bundle (PhilsBom).
-- `PhilsBom` - distribution folder (zip + install notes) and an unpacked bundle copy.
+- `PhilsBom` - distribution folder (zip + install notes).
 
 ---
 
@@ -74,7 +74,6 @@ This repository now hosts the PhilsDesignTools add-in, which consolidates the EA
 ## PhilsBom distribution
 - Zip: `InDevelopment/PhilsBom/PhilsBom.bundle-<version>.zip`
 - Install guide: `InDevelopment/PhilsBom/PhilsBom_INSTALL.txt`
-- Unpacked bundle copy: `InDevelopment/PhilsBom/PhilsBom.bundle`
 
 ---
 
