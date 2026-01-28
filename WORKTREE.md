@@ -34,4 +34,4 @@ and still be backed up to Git.
   local-only folders (for example `Addin\_external`) if you need them there.
 - This repo contains two add-ins:
   - `Addin/PhilsDesignTools` (Fusion Add-Ins folder)
-  - `PhilsBom.bundle` (ApplicationPlugins bundle)
+  - `PhilsBom` (distribution zip + install notes; source bundle lives in the InDevelopment worktree)

@@ -15,8 +15,6 @@ This repository now hosts the PhilsDesignTools add-in, which consolidates the EA
 - `Addin/tools` - deploy and watch scripts.
 - `Addin/CHANGELOG.md` and `Addin/DEVLOG.md` - release notes and working notes.
 - `Addin/WORKFLOW.md` - development and release workflow.
-- `archive/main` - archived rules, notes, and legacy zip releases from the former main branch.
-- `PhilsBom.bundle` - separate BOM export add-in bundle (PhilsBom).
 - `PhilsBom` - distribution folder (zip + install notes).
 
 ---
@@ -27,8 +25,10 @@ This repository now hosts the PhilsDesignTools add-in, which consolidates the EA
 - Active (deployed): `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools`
 
 ### PhilsBom (BOM export)
-- Source bundle (edit): `C:\Users\phil9\Documents\02 - Fusion\InDevelopment\PhilsBom.bundle`
+- Distribution (zip + install): `PhilsBom/PhilsBom.bundle-<version>.zip` + `PhilsBom/PhilsBom_INSTALL.txt`
 - Active bundle (deployed): `C:\Users\phil9\AppData\Roaming\Autodesk\ApplicationPlugins\PhilsBom.bundle`
+- Source bundle is maintained in the InDevelopment worktree:
+  `C:\Users\phil9\Documents\02 - Fusion\InDevelopment\PhilsBom.bundle`
 
 ---
 
@@ -72,18 +72,5 @@ This repository now hosts the PhilsDesignTools add-in, which consolidates the EA
 ---
 
 ## PhilsBom distribution
-- Zip: `InDevelopment/PhilsBom/PhilsBom.bundle-<version>.zip`
-- Install guide: `InDevelopment/PhilsBom/PhilsBom_INSTALL.txt`
-
----
-
-## Archive (former main)
-Legacy rules, notes, and zip releases are preserved under `archive/main/`.
-The ruleset remains the reference standard for add-in work:
-`archive/main/Fusion360_AddIn_Rules_Latest.md`
-
----
-
-## Session starter (Fusion 360 add-in work)
-Before generating code, load and follow:
-`archive/main/Fusion360_AddIn_Rules_Latest.md`
+- Zip: `PhilsBom/PhilsBom.bundle-<version>.zip`
+- Install guide: `PhilsBom/PhilsBom_INSTALL.txt`
