@@ -3,6 +3,14 @@
 This document captures the current workflow and the planned automation steps
 for moving from wireframe to fabrication-ready steel models.
 
+## Scope note
+This workflow document applies to **PhilsDesignTools**.  
+The **PhilsBom** BOM export add-in is a separate bundle with its own install
+package and deploy location:
+- Source bundle: `C:\Users\phil9\Documents\02 - Fusion\InDevelopment\PhilsBom.bundle`
+- Active bundle: `C:\Users\phil9\AppData\Roaming\Autodesk\ApplicationPlugins\PhilsBom.bundle`
+- Distribution: `C:\Users\phil9\Documents\02 - Fusion\InDevelopment\dist\PhilsBom.bundle-<version>.zip`
+
 ## Source input
 - Wireframe DXF from Rhino, with all members in their generic positions.
 - Wireframes are separated by sector and member types using layer names.

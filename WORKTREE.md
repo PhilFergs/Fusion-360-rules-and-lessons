@@ -29,3 +29,6 @@ and still be backed up to Git.
 ## Notes
 - Untracked/ignored local files are not shared between worktrees. Copy any
   local-only folders (for example `Addin\_external`) if you need them there.
+- This repo contains two add-ins:
+  - `Addin/PhilsDesignTools` (Fusion Add-Ins folder)
+  - `PhilsBom.bundle` (ApplicationPlugins bundle)

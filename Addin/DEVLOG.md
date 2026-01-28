@@ -113,3 +113,51 @@ Suggestions to resume / fix if still missing wall hits
 - Hole Cut From Face: rolled back `smg_holecut.py` to the pre-multi-target snapshot (`.bak-20260127-115807`) after multi-target changes resulted in sketches but no cuts.
 - Hole Cut From Face: fixed a rollback regression where selection logging referenced `hole_body_ctx` before it existed (now logs hole count and first hole body/occurrence safely).
 - Added AGENTS.md workflow rules for edit-in-InDevelopment, deploy-to-active, repo sync at session start, linked component handling, and DEVLOG update requirement.
+- Stub Arms To Wall: fixed a crash in missed-pair debug logging when the wall face normal is unavailable (now logs `None` safely).
+- Stub Arms To Wall: added wall face diagnostics (surface type + plane availability for asm/native faces) to explain "0 made, N missed" cases.
+- Stub Arms To Wall: added a non-planar wall fallback that samples a closest point + surface normal (used for ray hits, bracket type, and missed-pair diagnostics).
+- Stub Arms To Wall: replaced the normal-sampling ray fallback with a planar sketch fallback for non-planar walls (approx construction plane + projected edges + sketch-plane ray intersection).
+- Stub Arms To Wall: added parameter-midpoint normal sampling and explicit diagnostics around non-planar wall sketch creation to expose silent fallback failures on NURBS walls.
+- Stub Arms To Wall: switched non-planar wall handling to a best-fit plane (sampled face points + covariance/PCA) and use that plane for wall sketches, ray hits, bracket normals, and diagnostics; removed the now-unused face point/normal fallback.
+- Stub Arms To Wall: best-fit plane sampling now falls back to boundary edge sampling and bbox-seeded closest-point queries when parameter extents fail (fixes `pts=0` on some NURBS faces).
+- Stub Arms To Wall: best-fit sampling now tries native-face evaluation and maps sampled points into root space via `occ.transform2` when assembly-context NURBS evaluators return no usable points.
+- Stub Arms To Wall: added a root-component `findBRepUsingRay` fallback for non-planar walls and filter hits back to the selected wall face/body, while keeping the planar path unchanged.
+- Stub Arms To Wall: rolled back all non-planar fallbacks and restored planar-only wall handling to keep the known-working planar path stable.
+- Stub Arms To Wall: added a configurable "Wall inset" (default 60 mm) that offsets the wall hit point back toward the column along the wall normal.
+- Stub Arms To Wall: updated UI defaults (points=5, min/max spacing=800/1200, bottom/top=200/150) and now persists the last-used numeric settings via root-component attributes.
+- Stub Arms To Wall: disabled default debug logging and sketch fallback to reduce runtime overhead on planar walls.
+- Stub Arms To Wall: re-enabled sketch fallback after it caused missed wall hits in real models.
+- Stub Arms To Wall: made sketch-profile containment the primary wall-hit validator, with on-face ray checks as the fallback (test change).
+- Stub Arms To Wall: disabled the ray-based on-face fallback behind a flag (`USE_RAY_FALLBACK = False`) so wall hits rely only on sketch containment during testing.
+- BOM Creator: rebuilt `InDevelopment/BOMCreator.bundle/Contents/_BOM_Creator.py` from disassembly/partial decompiles to replace the incompatible `.pyc` after Fusion's Python update.
+- BOM Creator: restored settings normalization, column controls, BOM generation for all methods, and CSV/XLSX/XML/JSON export, and mirrored the bundle to `ApplicationPlugins` with a timestamped backup.
+- BOM Creator: fixed custom item number preview stepping so it no longer skips values.
+- BOM Creator: made the reconstructed add-in unambiguous by assigning a new manifest id/version and disabling the legacy `_BOM_Creator.pyc`/`__pycache__` via renames in both `InDevelopment` and `ApplicationPlugins`.
+- BOM Creator: created a fully separate add-in bundle `InDevelopment/BOMCreatorRebuilt.bundle` (new manifest/product codes and `COMMAND_ID = BOMCreatorRebuilt`) and deployed it alongside the legacy bundle at `ApplicationPlugins/BOMCreatorRebuilt.bundle`.
+- BOM Creator: added early boot logging in `BOMCreatorRebuilt.bundle/Contents/BOMCreator.py` that writes to `Documents/BOMCreatorRebuilt/BOMCreatorRebuilt_boot.log` to capture load failures before Fusion shows the generic API error.
+- BOM Creator: renamed all remaining `*.pyc` files (in both `InDevelopment` and the active bundle) to remove the `.pyc` extension, in case Fusion is pre-scanning bytecode and blocking load before `BOMCreator.py` executes.
+- BOM Creator: renamed the rebuilt add-in to **PhilsBom** by changing `COMMAND_ID/COMMAND_NAME`, renaming `BOMCreatorRebuilt.bundle` to `PhilsBom.bundle`, and renaming the core files to `PhilsBom.manifest`, `PhilsBom.py`, and `_PhilsBom.py`.
+- BOM Creator: updated the manifest/package metadata (new ids/codes, namespace, version 6.2.0), renamed the command logo to `PhilsBomLogo.png`, and mirrored to `ApplicationPlugins/PhilsBom.bundle` while keeping the prior active bundle as a disabled backup.
+- PhilsBom: bumped the add-in version to **1.01** in `_PhilsBom.py`, `PhilsBom.manifest`, and `PackageContents.xml`.
+- PhilsBom: added a **Units** group to the settings UI with length, area, volume, mass, and center-of-mass unit dropdowns (per-export control).
+- PhilsBom: normalized and persisted unit selections (`_lengthUnit/_areaUnit/_volumeUnit/_massUnit/_comUnit`) and reset them cleanly via the Reset button.
+- PhilsBom: replaced manual unit scaling with `unitsManager.convert`-based conversions (internal length/area/volume units -> selected units) and updated CSV headers to show the selected units.
+- PhilsBom: expanded settings logging to include the active unit selections and mirrored the updated `PhilsBom.bundle` to `ApplicationPlugins` with a timestamped backup.
+- PhilsBom: numeric columns (quantity/volume/area/mass/length/width/height) now export as unquoted values when safe so Excel treats them as numbers, while still quoting when the delimiter would break the CSV.
+- PhilsBom: XLSX export now infers numeric columns from headers and writes numeric `<v>` cells instead of `inlineStr`, reducing "number stored as text" warnings in Excel.
+- PhilsBom: added a mass total row at the bottom when the Mass column is present, summing `mass * quantity` in the selected mass units.
+- PhilsBom: added export toggles for **Include Parent Components** (default off) and **Include Linked Components** (default on), including defaults/normalization, persistence, and Reset handling.
+- PhilsBom: applied occurrence filtering in `CreateBOM` and `CreateIndentedBOM`; when parent components are excluded, their children are still traversed and included.
+- PhilsBom: removed legacy Autodesk App Store references by disabling update checks, clearing `OnlineDocumentation`, and replacing the help page with local instructions.
+- PhilsBom: generated new `ProductCode`/`UpgradeCode` GUIDs and moved legacy docs/resources and in-bundle `*.bak-*` files to `InDevelopment/_archive` to keep the bundle clean.
+- PhilsBom: mirrored the cleaned bundle to `ApplicationPlugins/PhilsBom.bundle` with a timestamped disabled-backup.
+- PhilsBom: created a clean distribution zip at `InDevelopment/dist/PhilsBom.bundle-1.01.zip` containing the `PhilsBom.bundle` root and excluding `__pycache__`/disabled bytecode.
+- PhilsBom: added a one-page installer guide at `InDevelopment/dist/PhilsBom_INSTALL.txt` and moved scratch zips/lists to `InDevelopment/_archive/dist-scratch-*`.
+- PhilsBom: guard missing resource folders by falling back to default command icons (prevents add-in load failure if Resources/Icon is missing).
+- PhilsBom: refreshed the distribution zip and installer guide after the resource-folder guard change.
+- PhilsBom: updated installer guide to v1.02 and built `InDevelopment/dist/PhilsBom.bundle-1.02.zip` for distribution; archived stray dist folder to `InDevelopment/_archive/dist-scratch-*`.
+- PhilsBom: clarified install guide to verify the unzipped contents and copy only the `PhilsBom.bundle` folder into `ApplicationPlugins`.
+- PhilsBom: corrected install guide wording ("Look" spelling) while keeping version text at v1.02.
+- Docs: clarified that this repo hosts two add-ins (PhilsDesignTools + PhilsBom) and documented their source/active paths, install steps, and distribution locations.
+- Docs: renamed the PhilsBom distribution folder from `dist` to `PhilsBom`, and updated references to the new paths.
+- PhilsBom: placed an unpacked `PhilsBom.bundle` copy inside `InDevelopment/PhilsBom` alongside the zip and install guide.
