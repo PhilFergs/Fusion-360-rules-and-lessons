@@ -15,15 +15,22 @@ STUB_BRACKET_ANCHOR_ATTR_NAME = "StubBracketAnchor"
 STUB_BRACKET_ATTR_MAP_NAME = "StubBracketTypeMap"
 STUB_BRACKET_ANCHOR_MAP_NAME = "StubBracketAnchorMap"
 BRACKET_SQUARE_TOL_DEG = 3.0
-STUB_POINT_MIN_MM = 700.0
-STUB_POINT_MAX_MM = 1000.0
+STUB_POINT_DEFAULT_COUNT = 5
+STUB_POINT_MIN_MM = 800.0
+STUB_POINT_MAX_MM = 1200.0
+STUB_BOTTOM_DEFAULT_MM = 200.0
+STUB_TOP_DEFAULT_MM = 150.0
+STUB_CLEARANCE_DEFAULT_MM = 200.0
+STUB_WALL_INSET_DEFAULT_MM = 60.0
+STUB_SETTINGS_ATTR_NAME = "StubArmsSettings"
 
 TOL = 1e-6
 ANGLE_TOL = 1e-3
-DEBUG_STUB_ARMS = True
+DEBUG_STUB_ARMS = False
 DEBUG_WALL_MARKERS = False
 DEBUG_PROFILE_TEST = False
 USE_SKETCH_FALLBACK = True
+USE_RAY_FALLBACK = False
 
 
 class StubArmsExecuteHandler(adsk.core.CommandEventHandler):
@@ -52,6 +59,22 @@ class StubArmsCreatedHandler(adsk.core.CommandCreatedEventHandler):
             if inputs.itemById("stub_cols"):
                 return
 
+            settings = _load_stub_settings(design.rootComponent)
+            if DEBUG_STUB_ARMS:
+                _dbg(f"Loaded settings: {settings}")
+
+            def safe_float(key, default):
+                try:
+                    return float(settings.get(key, default))
+                except:
+                    return float(default)
+
+            try:
+                points_default = int(settings.get("points", STUB_POINT_DEFAULT_COUNT))
+            except:
+                points_default = STUB_POINT_DEFAULT_COUNT
+            points_default = max(2, min(20, points_default))
+
             sel_cols = inputs.addSelectionInput(
                 "stub_cols",
                 "RHS/SHS column faces",
@@ -78,17 +101,48 @@ class StubArmsCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 2,
                 20,
                 1,
-                6
+                points_default
             )
 
             def v(mm):
                 return adsk.core.ValueInput.createByString(f"{mm} mm")
 
-            inputs.addValueInput("stub_min_spacing", "Min spacing", length_units, v(STUB_POINT_MIN_MM))
-            inputs.addValueInput("stub_max_spacing", "Max spacing", length_units, v(STUB_POINT_MAX_MM))
-            inputs.addValueInput("stub_bottom", "Bottom offset", length_units, v(500.0))
-            inputs.addValueInput("stub_top", "Top offset", length_units, v(150.0))
-            inputs.addValueInput("stub_clearance", "Wall clearance", length_units, v(200.0))
+            inputs.addValueInput(
+                "stub_min_spacing",
+                "Min spacing",
+                length_units,
+                v(safe_float("min_spacing_mm", STUB_POINT_MIN_MM)),
+            )
+            inputs.addValueInput(
+                "stub_max_spacing",
+                "Max spacing",
+                length_units,
+                v(safe_float("max_spacing_mm", STUB_POINT_MAX_MM)),
+            )
+            inputs.addValueInput(
+                "stub_bottom",
+                "Bottom offset",
+                length_units,
+                v(safe_float("bottom_mm", STUB_BOTTOM_DEFAULT_MM)),
+            )
+            inputs.addValueInput(
+                "stub_top",
+                "Top offset",
+                length_units,
+                v(safe_float("top_mm", STUB_TOP_DEFAULT_MM)),
+            )
+            inputs.addValueInput(
+                "stub_clearance",
+                "Wall clearance",
+                length_units,
+                v(safe_float("clearance_mm", STUB_CLEARANCE_DEFAULT_MM)),
+            )
+            inputs.addValueInput(
+                "stub_wall_inset",
+                "Wall inset",
+                length_units,
+                v(safe_float("wall_inset_mm", STUB_WALL_INSET_DEFAULT_MM)),
+            )
 
             on_exec = StubArmsExecuteHandler()
             cmd.execute.add(on_exec)
@@ -389,6 +443,45 @@ def _disable_sketch_profiles(sketch):
             setattr(sketch, attr, False)
         except:
             pass
+
+
+def _default_stub_settings():
+    return {
+        "points": STUB_POINT_DEFAULT_COUNT,
+        "min_spacing_mm": STUB_POINT_MIN_MM,
+        "max_spacing_mm": STUB_POINT_MAX_MM,
+        "bottom_mm": STUB_BOTTOM_DEFAULT_MM,
+        "top_mm": STUB_TOP_DEFAULT_MM,
+        "clearance_mm": STUB_CLEARANCE_DEFAULT_MM,
+        "wall_inset_mm": STUB_WALL_INSET_DEFAULT_MM,
+    }
+
+
+def _load_stub_settings(root):
+    settings = _default_stub_settings()
+    raw = _get_attr_value(root, STUB_MEMBER_ATTR_GROUP, STUB_SETTINGS_ATTR_NAME)
+    if not raw:
+        return settings
+    try:
+        data = json.loads(raw)
+    except:
+        return settings
+    if not isinstance(data, dict):
+        return settings
+    for k in list(settings.keys()):
+        if k in data and data[k] is not None:
+            settings[k] = data[k]
+    return settings
+
+
+def _save_stub_settings(root, settings):
+    if not root or not settings:
+        return False
+    try:
+        payload = json.dumps(settings)
+    except:
+        return False
+    return _set_attr(root, STUB_MEMBER_ATTR_GROUP, STUB_SETTINGS_ATTR_NAME, payload)
 
 
 def _set_attr(entity, group, name, value):
@@ -1144,6 +1237,7 @@ def _intersect_ray_with_faces_onface(origin, direction, faces, sk_cache):
     if not faces:
         return None, None
     use_sketch = USE_SKETCH_FALLBACK and sk_cache is not None
+    root = ctx.app().activeProduct.rootComponent if use_sketch else None
     for entry in faces:
         face = entry.get("asm") if isinstance(entry, dict) else entry
         if not face:
@@ -1151,12 +1245,15 @@ def _intersect_ray_with_faces_onface(origin, direction, faces, sk_cache):
         hit = _intersect_ray_with_face(face, origin, direction)
         if not hit:
             continue
-        if not _is_point_on_face(face, hit):
-            if not use_sketch:
-                continue
-            sk = _get_wall_center_sketch(ctx.app().activeProduct.rootComponent, entry, sk_cache)
-            if not sk or not _is_point_inside_sketch_profile(sk, hit):
-                continue
+        hit_ok = False
+        if use_sketch:
+            sk = _get_wall_center_sketch(root, entry, sk_cache)
+            if sk and _is_point_inside_sketch_profile(sk, hit):
+                hit_ok = True
+        if not hit_ok and USE_RAY_FALLBACK:
+            hit_ok = _is_point_on_face(face, hit)
+        if not hit_ok:
+            continue
         v = adsk.core.Vector3D.create(
             hit.x - origin.x,
             hit.y - origin.y,
@@ -1229,6 +1326,39 @@ def _adjust_lower_for_clearance(lower, upper, hit, axis_dir, faces, sk_cache, cl
         if rem <= clearance_u:
             break
     return lower, False
+
+
+def _offset_hit_from_wall(hit, upper, hit_entry, inset_u):
+    if not hit or not upper or not hit_entry:
+        return hit
+    if inset_u is None or inset_u <= TOL:
+        return hit
+    face = hit_entry.get("asm") if isinstance(hit_entry, dict) else hit_entry
+    if not face:
+        return hit
+    plane = _get_face_plane(face)
+    if not plane or not plane.normal:
+        return hit
+    n = _normalise(plane.normal)
+    if not n or n.length < TOL:
+        return hit
+    to_col = adsk.core.Vector3D.create(
+        upper.x - hit.x,
+        upper.y - hit.y,
+        upper.z - hit.z,
+    )
+    if to_col.length < TOL:
+        return hit
+    # Flip the wall normal so the inset always moves toward the column.
+    if n.dotProduct(to_col) < 0:
+        n.scaleBy(-1)
+    dist_to_upper = hit.distanceTo(upper)
+    inset_use = inset_u
+    if dist_to_upper > TOL and inset_use >= dist_to_upper - TOL:
+        inset_use = max(0.0, dist_to_upper - TOL)
+    if inset_use <= TOL:
+        return hit
+    return _offset_point(hit, n, inset_use)
 
 
 def _align_hit_to_upper(hit, upper, axis_dir, hit_entry, sk_cache):
@@ -1753,6 +1883,11 @@ def _execute(args):
     top_u = um.convert(top_mm, "mm", um.internalUnits)
     clearance_mm = mm_val("stub_clearance")
     clearance_u = um.convert(clearance_mm, "mm", um.internalUnits)
+    wall_inset_mm_raw = mm_val("stub_wall_inset")
+    wall_inset_mm = max(0.0, wall_inset_mm_raw)
+    if wall_inset_mm_raw < 0 and DEBUG_STUB_ARMS:
+        _dbg(f"Wall inset was negative ({wall_inset_mm_raw:.2f} mm); clamped to 0")
+    wall_inset_u = um.convert(wall_inset_mm, "mm", um.internalUnits)
     min_spacing_u = um.convert(min_mm, "mm", um.internalUnits)
     max_spacing_u = um.convert(max_mm, "mm", um.internalUnits)
 
@@ -1767,7 +1902,8 @@ def _execute(args):
 
     _dbg(
         f"Selected faces={len(faces)}, wall_faces={len(wall_faces)}, "
-        f"points={desired_count}, spacing_mm=[{min_mm},{max_mm}]"
+        f"points={desired_count}, spacing_mm=[{min_mm},{max_mm}], "
+        f"wall_inset_mm={wall_inset_mm}"
     )
 
     logger.log_command(
@@ -1780,6 +1916,20 @@ def _execute(args):
             "max_spacing_mm": max_mm,
             "bottom_mm": bottom_mm,
             "top_mm": top_mm,
+            "wall_inset_mm": wall_inset_mm,
+        },
+    )
+
+    _save_stub_settings(
+        root,
+        {
+            "points": desired_count,
+            "min_spacing_mm": min_mm,
+            "max_spacing_mm": max_mm,
+            "bottom_mm": bottom_mm,
+            "top_mm": top_mm,
+            "clearance_mm": clearance_mm,
+            "wall_inset_mm": wall_inset_mm,
         },
     )
 
@@ -1961,6 +2111,13 @@ def _execute(args):
                         _dbg(f"Pair {i}: hit from {hit_from} could not align to upper; skipped")
                     pair_missed += 1
                     continue
+            hit_before_inset = hit
+            hit = _offset_hit_from_wall(hit, upper, hit_entry, wall_inset_u)
+            if DEBUG_STUB_ARMS and hit_before_inset and hit:
+                inset_applied_u = hit_before_inset.distanceTo(hit)
+                if inset_applied_u > TOL:
+                    inset_applied_mm = um.convert(inset_applied_u, um.internalUnits, "mm")
+                    _dbg(f"Pair {i}: wall inset applied mm={inset_applied_mm:.2f}")
             if DEBUG_STUB_ARMS:
                 _dbg(f"Pair {i}: wall hit from {hit_from}")
             if DEBUG_WALL_MARKERS and wall_center_sketches and hit_entry and hit_marker_radius_u:
@@ -2152,6 +2309,13 @@ def _execute(args):
                         _dbg(f"Pair {i}: hit from {hit_from} could not align to upper; skipped")
                     pair_missed += 1
                     continue
+            hit_before_inset = hit
+            hit = _offset_hit_from_wall(hit, upper, hit_entry, wall_inset_u)
+            if DEBUG_STUB_ARMS and hit_before_inset and hit:
+                inset_applied_u = hit_before_inset.distanceTo(hit)
+                if inset_applied_u > TOL:
+                    inset_applied_mm = um.convert(inset_applied_u, um.internalUnits, "mm")
+                    _dbg(f"Pair {i}: wall inset applied mm={inset_applied_mm:.2f}")
             if DEBUG_STUB_ARMS:
                 _dbg(f"Pair {i}: wall hit from {hit_from}")
             if DEBUG_WALL_MARKERS and wall_center_sketches and hit_entry and hit_marker_radius_u:
