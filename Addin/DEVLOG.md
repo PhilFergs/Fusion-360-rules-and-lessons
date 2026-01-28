@@ -166,3 +166,4 @@ Suggestions to resume / fix if still missing wall hits
 - PhilsBom: removed the duplicate unpacked bundle from `InDevelopment/PhilsBom` so only the source bundle remains in the repo root.
 - PhilsBom: main branch now ships only the versioned zip + install notes (no unpacked bundle).
 - Docs: updated README/WORKTREE to match the single-bundle layout and main distribution-only structure.
+- PhilsBom: added "Linked components root parent name only" option to collapse linked assemblies to their top-level entry when linked components are included.

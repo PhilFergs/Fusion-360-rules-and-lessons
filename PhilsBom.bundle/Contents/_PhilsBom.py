@@ -57,6 +57,7 @@ TITLE_BOM_EXPORT_FILENAME = "BOM Export Filename"
 TITLE_INCLUDE_HIDDEN_ITEMS = "Include Hidden Items"
 TITLE_INCLUDE_PARENT_COMPONENTS = "Include Parent Components"
 TITLE_INCLUDE_LINKED_COMPONENTS = "Include Linked Components"
+TITLE_LINKED_ROOT_PARENT_ONLY = "Linked components root parent name only"
 TITLE_COLUMN_GROUP = "BOM Column Options"
 TITLE_COLUMN_TABLE = "Table"
 TITLE_TABLE_BUTTON_MOVE_UP = "Move Up"
@@ -83,6 +84,10 @@ TOOLTIP_BOM_DELIMITER_TYPE = "The CSV file delimiter used between the data colum
 TOOLTIP_INCLUDE_HIDDEN_ITEMS = "Include or exclude hidden items in the BOM"
 TOOLTIP_INCLUDE_PARENT_COMPONENTS = "Include components that have no bodies but contain child components"
 TOOLTIP_INCLUDE_LINKED_COMPONENTS = "Include components that are linked/referenced from other designs"
+TOOLTIP_LINKED_ROOT_PARENT_ONLY = (
+    "When linked components are included, only count the top-level linked component "
+    "(skip its subcomponents)"
+)
 TOOLTIP_BOM_EXPORT_FILE_TYPE = "The filetype (format) of the exported BOM"
 TOOLTIP_BOM_EXPORT_FILENAME = "The document property used in the filename of the exported BOM"
 TOOLTIP_TABLE_BUTTON_MOVE_UP = "Change the order of the columns (left)"
@@ -415,6 +420,7 @@ def _normalize_settings(appSettingsDictionary):
         "_filenameGroup",
         "_includeParentComponents",
         "_includeLinkedComponents",
+        "_linkedRootParentOnly",
         "_unitsGroup",
         "_lengthUnit",
         "_areaUnit",
@@ -508,6 +514,8 @@ def SettingsDefaultForKey(dictionaryKey):
         return False
     if dictionaryKey == "_includeLinkedComponents":
         return True
+    if dictionaryKey == "_linkedRootParentOnly":
+        return False
     if dictionaryKey == "_initialDirectory":
         return ""
     if dictionaryKey == "_settingsDictionaryText":
@@ -669,6 +677,7 @@ def SettingsReset(
     inputIncludeHiddenItems,
     inputIncludeParentComponents,
     inputIncludeLinkedComponents,
+    inputLinkedRootParentOnly,
     inputBOMExportFileType,
     inputBOMDelimiterType,
     inputSettingsDictionaryText,
@@ -689,6 +698,11 @@ def SettingsReset(
             inputIncludeParentComponents.value = SettingsDefaultForKey("_includeParentComponents")
         if inputIncludeLinkedComponents:
             inputIncludeLinkedComponents.value = SettingsDefaultForKey("_includeLinkedComponents")
+        if inputLinkedRootParentOnly:
+            inputLinkedRootParentOnly.value = SettingsDefaultForKey("_linkedRootParentOnly")
+            inputLinkedRootParentOnly.isEnabled = (
+                inputIncludeLinkedComponents.value if inputIncludeLinkedComponents else False
+            )
 
         settingBOMDelimiterType = GetDelimiterDefault()
         for i in range(len(LIST_BOM_DELIMITER_TYPES)):
@@ -954,12 +968,58 @@ def _is_linked_occurrence(occ):
     return False
 
 
-def _occurrence_allowed(occ, includeHiddenItems, includeParentComponents, includeLinkedComponents):
+def _linked_root_paths(occurrences):
+    paths = set()
+    if occurrences is None:
+        return paths
+    try:
+        for i in range(occurrences.count):
+            occ = occurrences.item(i)
+            if _is_linked_occurrence(occ):
+                try:
+                    paths.add(str(occ.fullPathName))
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    return paths
+
+
+def _linked_root_only_skip(occ, linkedRootParentOnly, linked_paths):
+    if not linkedRootParentOnly or not linked_paths:
+        return False
+    if not _is_linked_occurrence(occ):
+        return False
+    try:
+        full_path = str(occ.fullPathName)
+    except Exception:
+        return False
+    if "+" not in full_path:
+        return False
+    parts = full_path.split("+")
+    prefix = ""
+    for i in range(len(parts) - 1):
+        prefix = parts[i] if i == 0 else prefix + "+" + parts[i]
+        if prefix in linked_paths:
+            return True
+    return False
+
+
+def _occurrence_allowed(
+    occ,
+    includeHiddenItems,
+    includeParentComponents,
+    includeLinkedComponents,
+    linkedRootParentOnly=False,
+    linked_paths=None,
+):
     if occ is None:
         return False
     if occ.isVisible is False and includeHiddenItems is False:
         return False
     if includeLinkedComponents is False and _is_linked_occurrence(occ):
+        return False
+    if _linked_root_only_skip(occ, linkedRootParentOnly, linked_paths):
         return False
     if includeParentComponents is False and not _occurrence_has_bodies(occ):
         return False
@@ -1786,6 +1846,8 @@ def CreateIndentedBOM(
     includeHiddenItems,
     includeParentComponents,
     includeLinkedComponents,
+    linkedRootParentOnly=False,
+    parentLinked=False,
     multiplier=1,
 ):
     counter = 0
@@ -1796,12 +1858,17 @@ def CreateIndentedBOM(
         occ = occurrences.item(i)
         if occ.isVisible is False and includeHiddenItems is False:
             continue
-        if includeLinkedComponents is False and _is_linked_occurrence(occ):
+        isLinked = _is_linked_occurrence(occ)
+        if includeLinkedComponents is False and isLinked:
+            continue
+        if linkedRootParentOnly and parentLinked and isLinked:
             continue
         has_bodies = _occurrence_has_bodies(occ)
         if includeParentComponents is False and not has_bodies:
             children = occ.childOccurrences
             if children and children.count > 0:
+                if linkedRootParentOnly and isLinked:
+                    continue
                 CreateIndentedBOM(
                     children,
                     levelString,
@@ -1810,6 +1877,8 @@ def CreateIndentedBOM(
                     includeHiddenItems,
                     includeParentComponents,
                     includeLinkedComponents,
+                    linkedRootParentOnly,
+                    parentLinked or isLinked,
                     multiplier,
                 )
             continue
@@ -1874,6 +1943,8 @@ def CreateIndentedBOM(
 
         children = occ.childOccurrences
         if children and children.count > 0:
+            if linkedRootParentOnly and isLinked:
+                continue
             CreateIndentedBOM(
                 children,
                 childLevelString,
@@ -1882,6 +1953,8 @@ def CreateIndentedBOM(
                 includeHiddenItems,
                 includeParentComponents,
                 includeLinkedComponents,
+                linkedRootParentOnly,
+                parentLinked or isLinked,
                 quantity_here,
             )
 
@@ -1961,14 +2034,19 @@ def CreateBOM():
     includeHiddenItems = SettingsGetValueForKey(appSettingsDictionary, "_includeHiddenItems")
     includeParentComponents = SettingsGetValueForKey(appSettingsDictionary, "_includeParentComponents")
     includeLinkedComponents = SettingsGetValueForKey(appSettingsDictionary, "_includeLinkedComponents")
+    linkedRootParentOnly = SettingsGetValueForKey(appSettingsDictionary, "_linkedRootParentOnly")
+    if includeLinkedComponents is False:
+        linkedRootParentOnly = False
+    linked_paths = _linked_root_paths(occs) if linkedRootParentOnly else None
 
     _log(
-        "CreateBOM: method={} export={} hidden={} parents={} linked={} cols={}".format(
+        "CreateBOM: method={} export={} hidden={} parents={} linked={} linked_root_only={} cols={}".format(
             BOMCreationMethod,
             settingBOMExportFileType,
             includeHiddenItems,
             includeParentComponents,
             includeLinkedComponents,
+            linkedRootParentOnly,
             requiredColumns,
         )
     )
@@ -1982,7 +2060,12 @@ def CreateBOM():
         for i in reversed(range(occs.count)):
             occ = occs.item(i)
             if not _occurrence_allowed(
-                occ, includeHiddenItems, includeParentComponents, includeLinkedComponents
+                occ,
+                includeHiddenItems,
+                includeParentComponents,
+                includeLinkedComponents,
+                linkedRootParentOnly,
+                linked_paths,
             ):
                 continue
             for j in reversed(range(occ.bRepBodies.count)):
@@ -2040,6 +2123,8 @@ def CreateBOM():
             includeHiddenItems,
             includeParentComponents,
             includeLinkedComponents,
+            linkedRootParentOnly,
+            False,
             1,
         )
         bom = sorted(globalBOM, key=lambda b: _sort_level_key(b.get("level", "")))
@@ -2047,7 +2132,12 @@ def CreateBOM():
         for i in reversed(range(occs.count)):
             occ = occs.item(i)
             if not _occurrence_allowed(
-                occ, includeHiddenItems, includeParentComponents, includeLinkedComponents
+                occ,
+                includeHiddenItems,
+                includeParentComponents,
+                includeLinkedComponents,
+                linkedRootParentOnly,
+                linked_paths,
             ):
                 continue
 
@@ -2290,6 +2380,18 @@ class CommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
             )
             inputIncludeLinkedComponents.tooltip = TOOLTIP_INCLUDE_LINKED_COMPONENTS
 
+            uniqueID = "_linkedRootParentOnly"
+            settingLinkedRootParentOnly = SettingsGetValueForKey(appSettingsDictionary, uniqueID)
+            inputLinkedRootParentOnly = exportGroupInputInputs.addBoolValueInput(
+                COMMAND_ID + uniqueID,
+                TITLE_LINKED_ROOT_PARENT_ONLY,
+                True,
+                "",
+                settingLinkedRootParentOnly,
+            )
+            inputLinkedRootParentOnly.tooltip = TOOLTIP_LINKED_ROOT_PARENT_ONLY
+            inputLinkedRootParentOnly.isEnabled = bool(settingIncludeLinkedComponents)
+
             uniqueID = "_BOMExportFileType"
             settingBOMExportFileType = SettingsGetValueForKey(appSettingsDictionary, uniqueID)
             inputBOMExportFileType = exportGroupInputInputs.addDropDownCommandInput(
@@ -2438,6 +2540,7 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
             inputIncludeHiddenItems = GetCommandForUniqueID("_includeHiddenItems", command)
             inputIncludeParentComponents = GetCommandForUniqueID("_includeParentComponents", command)
             inputIncludeLinkedComponents = GetCommandForUniqueID("_includeLinkedComponents", command)
+            inputLinkedRootParentOnly = GetCommandForUniqueID("_linkedRootParentOnly", command)
             inputBOMExportFileType = GetCommandForUniqueID("_BOMExportFileType", command)
             inputBOMDelimiterType = GetCommandForUniqueID("_BOMDelimiterType", command)
             inputColumnTable = GetCommandForUniqueID("_columnTable", command)
@@ -2460,6 +2563,7 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
                     inputIncludeHiddenItems,
                     inputIncludeParentComponents,
                     inputIncludeLinkedComponents,
+                    inputLinkedRootParentOnly,
                     inputBOMExportFileType,
                     inputBOMDelimiterType,
                     inputSettingsDictionaryText,
@@ -2540,6 +2644,10 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
                 settingBOMExportFileType = inputBOMExportFileType.selectedItem.name
                 inputBOMDelimiterType.isVisible = settingBOMExportFileType == "CSV (.csv)"
 
+            if commandInput.id == COMMAND_ID + "_includeLinkedComponents":
+                if inputLinkedRootParentOnly:
+                    inputLinkedRootParentOnly.isEnabled = bool(inputIncludeLinkedComponents.value)
+
             inputFilenamePreview.value = GetFilenameBOM(
                 inputBOMExportFilename.selectedItem.name,
                 inputBOMCreationMethod.selectedItem.name,
@@ -2592,6 +2700,14 @@ class CommandExecutedEventHandler(adsk.core.CommandEventHandler):
                 settingsKey = "_includeLinkedComponents"
                 inputIncludeLinkedComponents = GetCommandForUniqueID(settingsKey, command)
                 SettingsSetValueForKey(appSettingsDictionary, settingsKey, inputIncludeLinkedComponents.value)
+
+                settingsKey = "_linkedRootParentOnly"
+                inputLinkedRootParentOnly = GetCommandForUniqueID(settingsKey, command)
+                SettingsSetValueForKey(
+                    appSettingsDictionary,
+                    settingsKey,
+                    inputLinkedRootParentOnly.value if inputLinkedRootParentOnly else False,
+                )
 
                 settingsKey = "_BOMExportFileType"
                 inputBOMExportFileType = GetCommandForUniqueID(settingsKey, command)
