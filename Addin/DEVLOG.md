@@ -161,3 +161,8 @@ Suggestions to resume / fix if still missing wall hits
 - Docs: clarified that this repo hosts two add-ins (PhilsDesignTools + PhilsBom) and documented their source/active paths, install steps, and distribution locations.
 - Docs: renamed the PhilsBom distribution folder from `dist` to `PhilsBom`, and updated references to the new paths.
 - PhilsBom: placed an unpacked `PhilsBom.bundle` copy inside `InDevelopment/PhilsBom` alongside the zip and install guide.
+
+## 2026-01-28
+- PhilsBom: removed the duplicate unpacked bundle from `InDevelopment/PhilsBom` so only the source bundle remains in the repo root.
+- PhilsBom: main branch now ships only the versioned zip + install notes (no unpacked bundle).
+- Docs: updated README/WORKTREE to match the single-bundle layout and main distribution-only structure.
