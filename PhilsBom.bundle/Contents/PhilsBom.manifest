@@ -6,7 +6,7 @@
 	"description":	{
 		"":	"PhilsBom"
 	},
-	"version":	"1.01",
+	"version":	"1.03",
 	"runOnStartup":	true,
 	"supportedOS":	"windows|mac",
 	"editEnabled":	true

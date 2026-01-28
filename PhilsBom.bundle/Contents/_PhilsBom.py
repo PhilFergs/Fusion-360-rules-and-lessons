@@ -20,7 +20,7 @@ from datetime import datetime as dt
 APP = adsk.core.Application.get()
 UI = APP.userInterface if APP else None
 
-APP_VERSION = 1.01
+APP_VERSION = 1.03
 # Legacy App Store update checks are intentionally disabled for PhilsBom.
 APP_UPDATE_CHECK_DURATION = 0
 APP_URL = ""

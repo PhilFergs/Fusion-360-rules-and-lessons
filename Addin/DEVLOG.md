@@ -167,3 +167,4 @@ Suggestions to resume / fix if still missing wall hits
 - PhilsBom: main branch now ships only the versioned zip + install notes (no unpacked bundle).
 - Docs: updated README/WORKTREE to match the single-bundle layout and main distribution-only structure.
 - PhilsBom: added "Linked components root parent name only" option to collapse linked assemblies to their top-level entry when linked components are included.
+- PhilsBom: bumped bundle metadata + distribution to v1.03 and refreshed install notes.

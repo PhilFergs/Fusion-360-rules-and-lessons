@@ -5,7 +5,7 @@
 	AutodeskProduct="Fusion360"
 	Name="PhilsBom"
 	Description="PhilsBom BOM export add-in."
-	AppVersion="1.01"
+	AppVersion="1.03"
 	Author="phil9"
 	AppNameSpace="com.phil9.Fusion360.PhilsBom"
 	HelpFile="./Contents/docs/help.html"
@@ -23,7 +23,7 @@
 
 	<Components>
 		<RuntimeRequirements SupportPath="./Contents/docs" OS="win64|mac" Platform="Fusion360" SeriesMin="" />
-		    <ComponentEntry AppName="PhilsBom" Version="1.01" ModuleName="./Contents/PhilsBom.manifest" AppDescription="PhilsBom BOM export add-in." />
+		    <ComponentEntry AppName="PhilsBom" Version="1.03" ModuleName="./Contents/PhilsBom.manifest" AppDescription="PhilsBom BOM export add-in." />
 	</Components>
 	
 </ApplicationPackage>

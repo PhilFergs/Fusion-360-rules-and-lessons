@@ -1,10 +1,10 @@
-Phils Bom (PhilsBom) - Install Instructions (v1.02)
+Phils Bom (PhilsBom) - Install Instructions (v1.03)
 
 This add-in installs by copying the PhilsBom.bundle folder into Fusion's
 ApplicationPlugins directory.
 
 1) Unzip the package
-- Unzip PhilsBom.bundle-1.02.zip.
+- Unzip PhilsBom.bundle-1.03.zip.
 - Look at the unzipped folder contents.
 - You should see a folder named: PhilsBom.bundle
   - Make sure this folder contains: Contents\Resources\Icon
