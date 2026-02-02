@@ -90,3 +90,12 @@ TypeWithIndex examples:
    before overwriting the active Fusion add-ins copy.
 4. Optional: run `tools/watch_deploy.ps1` during development to auto-copy changes.
 5. Always create a timestamped backup before editing a tool script (e.g., `smg_stub_arms.py.bak-YYYYMMDD-HHMMSS`).
+
+## Main branch release policy
+- The `main` branch is **zip-only** for end users.
+- `main` must contain only:
+  - `PhilsBom.bundle-<version>.zip`
+  - `PhilsDesignTools-<version>.zip`
+  - `README.md`
+- Do not commit source code, tools, or dev docs to `main`.
+- Release flow: develop in `InDevelopment`, then export new zips and update `main` when ready.
