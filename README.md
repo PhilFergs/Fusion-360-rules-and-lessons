@@ -72,11 +72,14 @@ This repository now hosts the PhilsDesignTools add-in, which consolidates the EA
 ---
 
 ## Main branch contents (keep limited)
-The `main` branch should only contain the following top-level items:
-- `Addin`
+The `main` branch is for **end users** and **must only contain installables**:
 - `PhilsBom.bundle-<version>.zip`
 - `PhilsDesignTools-<version>.zip`
 - `README.md`
+
+Notes:
+- Do **not** commit source code, tools, or dev docs to `main`.
+- All development happens in `InDevelopment`; only push to `main` when a release zip is ready.
 
 ---
 
