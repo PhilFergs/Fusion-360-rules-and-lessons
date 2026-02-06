@@ -112,6 +112,15 @@ def choose_export_folder(ui):
     return os.path.dirname(dlg.filename)
 
 
+def _safe_add_selection_filter(sel, filter_name: str):
+    try:
+        sel.addSelectionFilter(filter_name)
+        return True
+    except:
+        logger.log(f"IGES Export: Selection filter '{filter_name}' not supported; ignoring.")
+        return False
+
+
 class IGESExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
     def notify(self, args):
         try:
@@ -126,9 +135,9 @@ class IGESExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 "Selection",
                 "Select components, occurrences, or bodies to export"
             )
-            sel.addSelectionFilter("Bodies")
-            sel.addSelectionFilter("Occurrences")
-            sel.addSelectionFilter("Components")
+            _safe_add_selection_filter(sel, "Bodies")
+            _safe_add_selection_filter(sel, "Occurrences")
+            _safe_add_selection_filter(sel, "Components")
             sel.setSelectionLimits(1, 0)
 
             on_exec = IGESExportExecuteHandler()

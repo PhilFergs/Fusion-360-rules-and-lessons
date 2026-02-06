@@ -96,7 +96,8 @@ def create_orientation_matrix(line_mid, x_base, y_axis, z_base, angle_deg, offse
 def generate_ea_from_lines(lines,
                            flange_mm, thickness_mm, extra_mm,
                            hole_d_mm, hole_g_mm, fillet_mm,
-                           angle_deg):
+                           angle_deg,
+                           holes_enabled=True):
     if not lines:
         ctx.ui().messageBox("Please select at least one sketch line.")
         return
@@ -112,7 +113,7 @@ def generate_ea_from_lines(lines,
         if _create_ea_for_line(design, root, um, line, next_idx,
                                flange_mm, thickness_mm, extra_mm,
                                hole_d_mm, hole_g_mm, fillet_mm,
-                               angle_deg):
+                               angle_deg, holes_enabled):
             created += 1
             next_idx += 1
 
@@ -122,7 +123,7 @@ def generate_ea_from_lines(lines,
 def _create_ea_for_line(design, root, um, sk_line, idx,
                         flange_mm, thickness_mm, extra_mm,
                         hole_d_mm, hole_g_mm, fillet_mm,
-                        angle_deg):
+                        angle_deg, holes_enabled):
     sp = sk_line.startSketchPoint.worldGeometry
     ep = sk_line.endSketchPoint.worldGeometry
     cc_len_u = sp.distanceTo(ep)
@@ -161,7 +162,8 @@ def _create_ea_for_line(design, root, um, sk_line, idx,
 
     body = _build_ea_geometry(design, comp, um, cc_len_u,
                               flange_mm, thickness_mm, extra_mm,
-                              hole_d_mm, hole_g_mm, fillet_mm)
+                              hole_d_mm, hole_g_mm, fillet_mm,
+                              holes_enabled)
 
     _apply_steel_material(comp, body)
     _apply_steel_color(body)
@@ -174,7 +176,8 @@ def _create_ea_for_line(design, root, um, sk_line, idx,
 
 def _build_ea_geometry(design, comp, um, cc_len_u,
                        flange_mm, thickness_mm, extra_mm,
-                       hole_d_mm, hole_g_mm, fillet_mm):
+                       hole_d_mm, hole_g_mm, fillet_mm,
+                       holes_enabled):
     sketches = comp.sketches
     extrudes = comp.features.extrudeFeatures
 
@@ -212,7 +215,8 @@ def _build_ea_geometry(design, comp, um, cc_len_u,
     body = ext.bodies.item(0)
 
     _apply_root_fillet(comp, body, thk_u, fillet_u)
-    _cut_ea_holes(comp, body, cc_len_u, hole_d_u, hole_g_u, flange_u)
+    if holes_enabled:
+        _cut_ea_holes(comp, body, cc_len_u, hole_d_u, hole_g_u, flange_u)
     return body
 
 
