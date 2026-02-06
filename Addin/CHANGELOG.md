@@ -26,6 +26,7 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Stub Arms To Wall: wall clearance setting, auto column body selection, and stub-arm sketches grouped under the "stub arm lines" component.
 - Stub Arms Beta command (optimized stub arm generation).
 - PhilsBom: added a "Linked components root parent name only" option to collapse linked assemblies to a single top-level BOM entry.
+- EA From Lines: added a toggle to create EA members without holes.
 ### Changed
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.
@@ -53,3 +54,4 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Stub Arms To Wall: sketch/column labels now prefer component name over occurrence name.
 - Stub Arms To Wall: bracket classification now uses abs(dot) in XY with 3D fallback; defaults to swivel if angle cannot be computed.
 - PhilsBom: bumped bundle metadata and distribution to version 1.03 after adding the linked-root option.
+- IGES Component Export: selection filters now ignore unsupported filter types to avoid UI errors.

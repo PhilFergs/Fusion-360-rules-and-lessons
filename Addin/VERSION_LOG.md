@@ -7,6 +7,10 @@ the previous add-in folder before overwriting files in the Fusion add-ins path.
 - Branch: feature/in-development
 - Summary: Stub Arms To Wall overhaul (on-face polygon hits, wall face/body/occurrence selection, column body/occurrence auto face, stub arm lines component, wall clearance with lower-line adjust/drop, no guide lines or wall sketches).
 
+## 2026-02-06 00:00
+- Branch: feature/in-development
+- Summary: EA From Lines toggle for no-hole members; IGES export selection filters hardened; bumped PhilsDesignTools version to 1.0.1.
+
 ## 2026-01-02 17:05
 - Branch: PhilsDesignTools
 - Summary: EA rotate axis fix (outer hole face), debug logging, cleanup of unused imports/helper.
