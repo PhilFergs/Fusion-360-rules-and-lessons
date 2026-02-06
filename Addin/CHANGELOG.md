@@ -28,6 +28,7 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - PhilsBom: added a "Linked components root parent name only" option to collapse linked assemblies to a single top-level BOM entry.
 - EA From Lines: added a toggle to create EA members without holes.
 - Sort Components: sort child occurrences by name under selected parents (supports whole design + recursive).
+- Sort Components: can enable design history automatically when running in Direct Modeling mode.
 ### Changed
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.

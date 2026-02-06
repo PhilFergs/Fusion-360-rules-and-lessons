@@ -188,8 +188,25 @@ def _execute(args):
         return
 
     if design.designType == adsk.fusion.DesignTypes.DirectDesignType:
-        ui.messageBox("Design history is off. Sorting requires the timeline.")
-        return
+        result = ui.messageBox(
+            "Design history is off (Direct Modeling).\n\n"
+            "To sort components, Fusion needs the timeline. "
+            "Enable history and continue?\n\n"
+            "This converts the design to Parametric.",
+            "Enable Design History?",
+            adsk.core.MessageBoxButtonTypes.YesNoButtonType,
+            adsk.core.MessageBoxIconTypes.WarningIconType,
+        )
+        if result != adsk.core.DialogResults.DialogYes:
+            return
+        try:
+            ok = design.designType = adsk.fusion.DesignTypes.ParametricDesignType
+            if ok is False:
+                ui.messageBox("Failed to enable design history.")
+                return
+        except:
+            ui.messageBox("Failed to enable design history.")
+            return
 
     timeline = design.timeline
     if not timeline:
