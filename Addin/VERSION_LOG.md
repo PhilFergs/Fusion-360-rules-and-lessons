@@ -11,6 +11,10 @@ the previous add-in folder before overwriting files in the Fusion add-ins path.
 - Branch: feature/in-development
 - Summary: EA From Lines toggle for no-hole members; IGES export selection filters hardened; bumped PhilsDesignTools version to 1.0.1.
 
+## 2026-02-06 00:20
+- Branch: feature/in-development
+- Summary: Added Sort Components tool (natural sort for child occurrences); bumped PhilsDesignTools version to 1.0.2.
+
 ## 2026-01-02 17:05
 - Branch: PhilsDesignTools
 - Summary: EA rotate axis fix (outer hole face), debug logging, cleanup of unused imports/helper.

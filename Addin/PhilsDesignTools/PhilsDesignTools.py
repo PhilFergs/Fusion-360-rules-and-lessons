@@ -37,6 +37,7 @@ def run(context):
         import smg_stub_arms as stub_arms_mod
         import smg_stub_arms_export as stub_arms_export_mod
         import smg_stub_arms_bracket as stub_arms_bracket_mod
+        import smg_sort_components as sort_components_mod
         import smg_logger as logger
 
         # Initialise shared context (app, ui, handler store, etc.).
@@ -104,6 +105,7 @@ def run(context):
             "PhilsDesignTools_StubArms",
             "PhilsDesignTools_StubArms_Export_CSV",
             "PhilsDesignTools_StubArms_SetBracket",
+            "PhilsDesignTools_SortComponents",
         ]
 
         legacy_panels = []
@@ -136,6 +138,7 @@ def run(context):
         stub_arms_mod.register(ui, panel)
         stub_arms_export_mod.register(ui, panel)
         stub_arms_bracket_mod.register(ui, panel)
+        sort_components_mod.register(ui, panel)
 
     except:
         try:
@@ -169,6 +172,7 @@ def stop(context):
             "PhilsDesignTools_StubArms",
             "PhilsDesignTools_StubArms_Export_CSV",
             "PhilsDesignTools_StubArms_SetBracket",
+            "PhilsDesignTools_SortComponents",
         ]
 
         if ws:
