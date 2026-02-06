@@ -84,20 +84,29 @@ def _sort_occurrences_in_component(comp, timeline):
     if len(occs) < 2:
         return 0, 0, 0
 
+    def safe_tl_index(tl_obj):
+        try:
+            return tl_obj.index
+        except:
+            return None
+
     items = []
     for occ in occs:
         try:
             tl = occ.timelineObject
         except:
             tl = None
-        if not tl or tl.index < 0:
+        if not tl:
             continue
-        items.append((occ, tl))
+        idx = safe_tl_index(tl)
+        if idx is None or idx < 0:
+            continue
+        items.append((occ, tl, idx))
 
     if len(items) < 2:
         return 0, 0, 0
 
-    anchor = min(tl.index for _, tl in items)
+    anchor = min(idx for _, _, idx in items)
     items_sorted = sorted(items, key=lambda it: _natural_key(it[0].name or it[0].component.name))
 
     moved = 0
@@ -105,7 +114,7 @@ def _sort_occurrences_in_component(comp, timeline):
     failed = 0
 
     # Reorder in reverse, placing each item before the anchor index.
-    for occ, tl in reversed(items_sorted):
+    for occ, tl, _ in reversed(items_sorted):
         try:
             if not tl.canReorder(anchor):
                 skipped += 1

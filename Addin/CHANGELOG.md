@@ -29,6 +29,7 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - EA From Lines: added a toggle to create EA members without holes.
 - Sort Components: sort child occurrences by name under selected parents (supports whole design + recursive).
 - Sort Components: can enable design history automatically when running in Direct Modeling mode.
+- Sort Components: hardened timeline index access to avoid internal validation errors.
 ### Changed
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.
