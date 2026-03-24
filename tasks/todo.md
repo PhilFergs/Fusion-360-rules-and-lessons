@@ -25,7 +25,12 @@ Date: 2026-03-24
 - [x] Back up any files updated for release metadata
 - [x] Bump `PhilsDesignTools.manifest` version to `1.0.5`
 - [x] Add release note to `Addin/VERSION_LOG.md`
-- [ ] Commit and push `feature/in-development`
-- [ ] Build `PhilsDesignTools-1.0.5.zip` release package
-- [ ] Update zip-only `main` branch with new package + README
-- [ ] Push `main`
+- [x] Commit and push `feature/in-development`
+- [x] Build `PhilsDesignTools-1.0.5.zip` release package
+- [x] Update zip-only `main` branch with new package + README
+- [x] Push `main`
+
+### Release Verification Notes
+- Feature branch pushed: `23ef5f4` on `origin/feature/in-development`
+- Main branch pushed: `f006eb6` on `origin/main`
+- Main package updated: `PhilsDesignTools-1.0.5.zip` (replaced `PhilsDesignTools-1.0.1.zip`)
