@@ -56,5 +56,8 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Stub Arms Export: use column label attribute and default missing bracket tags to swivel.
 - Stub Arms To Wall: sketch/column labels now prefer component name over occurrence name.
 - Stub Arms To Wall: bracket classification now uses abs(dot) in XY with 3D fallback; defaults to swivel if angle cannot be computed.
+- Stub Arms Export: added a "Stub arm screws per stub arm" UI input and changed the default from 3 to 2.
+- Stub Arms Export: added an export filetype dropdown (XLSX/CSV/XML/JSON) with XLSX as the default.
+- Stub Arms Export: mixed selections now ignore non-stub sketch lines and dedupe duplicate native/occurrence lines so per-column EA ordering stays correct.
 - PhilsBom: bumped bundle metadata and distribution to version 1.03 after adding the linked-root option.
 - IGES Component Export: selection filters now ignore unsupported filter types to avoid UI errors.

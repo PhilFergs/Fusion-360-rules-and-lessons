@@ -5,19 +5,30 @@ import csv
 import os
 import math
 import json
+import zipfile
 
 import smg_context as ctx
 import smg_logger as logger
 
 CMD_ID = "PhilsDesignTools_StubArms_Export_CSV"
-CMD_NAME = "Stub Arms Export CSV"
-CMD_TOOLTIP = "Export stub arm line lengths and stock quantities to CSV."
+CMD_NAME = "Stub Arms Export"
+CMD_TOOLTIP = "Export stub arm line lengths and stock quantities."
 RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 
 SELECTION_INPUT_ID = "stub_arms_export_selection"
 INCLUDE_SUBCOMPONENTS_ID = "stub_arms_export_include_subcomponents"
 VISIBLE_ONLY_ID = "stub_arms_export_visible_only"
 DETAIL_BY_COLUMN_ID = "stub_arms_export_detail_by_column"
+SCREWS_PER_STUB_ARM_ID = "stub_arms_export_screws_per_stub_arm"
+SCREWS_PER_STUB_ARM_DEFAULT = 2
+EXPORT_FILE_TYPE_ID = "stub_arms_export_filetype"
+EXPORT_FILE_TYPES = [
+    "XLSX (.xlsx)",
+    "CSV (.csv)",
+    "XML (.xml)",
+    "JSON (.json)",
+]
+EXPORT_FILE_TYPE_DEFAULT = "XLSX (.xlsx)"
 
 STOCK_MIN_MM = 300
 STOCK_MAX_MM = 1800
@@ -80,6 +91,21 @@ class StubArmsExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 "",
                 False,
             )
+            inputs.addIntegerSpinnerCommandInput(
+                SCREWS_PER_STUB_ARM_ID,
+                "Stub arm screws per stub arm",
+                1,
+                20,
+                1,
+                SCREWS_PER_STUB_ARM_DEFAULT,
+            )
+            filetype_dd = inputs.addDropDownCommandInput(
+                EXPORT_FILE_TYPE_ID,
+                "Export filetype",
+                adsk.core.DropDownStyles.TextListDropDownStyle,
+            )
+            for filetype in EXPORT_FILE_TYPES:
+                filetype_dd.listItems.add(filetype, filetype == EXPORT_FILE_TYPE_DEFAULT, "")
 
             on_exec = StubArmsExportExecuteHandler()
             cmd.execute.add(on_exec)
@@ -137,20 +163,27 @@ def _is_line_visible(line):
     return True
 
 
-def _append_line(line, tokens, lines, visible_only):
+def _append_line(line, tokens, geom_keys, lines, visible_only):
     if not line:
         return
     if visible_only and not _is_line_visible(line):
         return
+    if not _is_stub_arm_line(line):
+        return
     tok = _safe_entity_token(line)
     if tok and tok in tokens:
         return
+    geom_key = _line_world_key(line)
+    if geom_key and geom_key in geom_keys:
+        return
     if tok:
         tokens.add(tok)
+    if geom_key:
+        geom_keys.add(geom_key)
     lines.append(line)
 
 
-def _collect_lines_from_sketch(sketch, tokens, lines, visible_only):
+def _collect_lines_from_sketch(sketch, tokens, geom_keys, lines, visible_only):
     if not sketch:
         return
     if visible_only and not _is_entity_visible(sketch):
@@ -158,17 +191,17 @@ def _collect_lines_from_sketch(sketch, tokens, lines, visible_only):
     try:
         sk_lines = sketch.sketchCurves.sketchLines
         for i in range(sk_lines.count):
-            _append_line(sk_lines.item(i), tokens, lines, visible_only)
+            _append_line(sk_lines.item(i), tokens, geom_keys, lines, visible_only)
     except:
         pass
 
 
-def _collect_lines_from_occurrence(occ, include_children, tokens, lines, visible_only):
+def _collect_lines_from_occurrence(occ, include_children, tokens, geom_keys, lines, visible_only):
     if not occ or not occ.component:
         return
     if visible_only and not _is_entity_visible(occ):
         return
-    _collect_lines_from_component(occ.component, False, tokens, lines, visible_only)
+    _collect_lines_from_component(occ.component, False, tokens, geom_keys, lines, visible_only)
     if not include_children:
         return
     try:
@@ -178,16 +211,16 @@ def _collect_lines_from_occurrence(occ, include_children, tokens, lines, visible
     if not children:
         return
     for child in children:
-        _collect_lines_from_occurrence(child, include_children, tokens, lines, visible_only)
+        _collect_lines_from_occurrence(child, include_children, tokens, geom_keys, lines, visible_only)
 
 
-def _collect_lines_from_component(comp, include_children, tokens, lines, visible_only):
+def _collect_lines_from_component(comp, include_children, tokens, geom_keys, lines, visible_only):
     if not comp:
         return
     try:
         sketches = comp.sketches
         for i in range(sketches.count):
-            _collect_lines_from_sketch(sketches.item(i), tokens, lines, visible_only)
+            _collect_lines_from_sketch(sketches.item(i), tokens, geom_keys, lines, visible_only)
     except:
         pass
     if not include_children:
@@ -199,7 +232,7 @@ def _collect_lines_from_component(comp, include_children, tokens, lines, visible
     if not occs:
         return
     for occ in occs:
-        _collect_lines_from_occurrence(occ, include_children, tokens, lines, visible_only)
+        _collect_lines_from_occurrence(occ, include_children, tokens, geom_keys, lines, visible_only)
 
 
 def _iterate_selected_lines(sel_input, include_subcomponents, visible_only):
@@ -208,6 +241,7 @@ def _iterate_selected_lines(sel_input, include_subcomponents, visible_only):
 
     lines = []
     tokens = set()
+    geom_keys = set()
 
     for i in range(sel_input.selectionCount):
         ent = sel_input.selection(i).entity
@@ -220,16 +254,16 @@ def _iterate_selected_lines(sel_input, include_subcomponents, visible_only):
         comp = adsk.fusion.Component.cast(ent)
 
         if line:
-            _append_line(line, tokens, lines, visible_only)
+            _append_line(line, tokens, geom_keys, lines, visible_only)
         elif sketch:
-            _collect_lines_from_sketch(sketch, tokens, lines, visible_only)
+            _collect_lines_from_sketch(sketch, tokens, geom_keys, lines, visible_only)
         elif occ:
-            _collect_lines_from_occurrence(occ, include_subcomponents, tokens, lines, visible_only)
+            _collect_lines_from_occurrence(occ, include_subcomponents, tokens, geom_keys, lines, visible_only)
         elif comp:
-            _collect_lines_from_component(comp, include_subcomponents, tokens, lines, visible_only)
+            _collect_lines_from_component(comp, include_subcomponents, tokens, geom_keys, lines, visible_only)
 
     if not lines:
-        raise RuntimeError("No sketch lines found in the selection.")
+        raise RuntimeError("No stub arm sketch lines found in the selection.")
     return lines
 
 
@@ -313,6 +347,23 @@ def _line_endpoint_keys(line, um, decimals=1):
     except:
         return None, None
     return _point_key(sp, um, decimals), _point_key(ep, um, decimals)
+
+
+def _line_world_key(line, decimals=6):
+    if not line:
+        return None
+    try:
+        sp = line.startSketchPoint.worldGeometry
+        ep = line.endSketchPoint.worldGeometry
+    except:
+        return None
+    if not sp or not ep:
+        return None
+    p1 = (round(sp.x, decimals), round(sp.y, decimals), round(sp.z, decimals))
+    p2 = (round(ep.x, decimals), round(ep.y, decimals), round(ep.z, decimals))
+    if p1 <= p2:
+        return (p1, p2)
+    return (p2, p1)
 
 
 def _lines_share_endpoint(line_a, line_b, um, decimals=1):
@@ -524,6 +575,30 @@ def _get_bracket_type(line):
     return "unknown"
 
 
+def _is_stub_arm_line(line):
+    if not line:
+        return False
+    if _get_line_member_attr(line):
+        return True
+    if _get_line_attr_value(line, STUB_COLUMN_ATTR_NAME):
+        return True
+    if _get_line_attr_value(line, STUB_BRACKET_ATTR_NAME):
+        return True
+    if _get_line_attr_value(line, STUB_BRACKET_ANCHOR_ATTR_NAME):
+        return True
+    try:
+        sketch = line.parentSketch
+    except:
+        sketch = None
+    if not sketch:
+        return False
+    try:
+        sketch_name = (sketch.name or "").strip().lower()
+    except:
+        sketch_name = ""
+    return sketch_name.startswith("stub arms - ")
+
+
 def _classify_lines(lines, um):
     line_types = {}
     line_by_key = {}
@@ -596,6 +671,158 @@ def _classify_lines(lines, um):
     return line_types
 
 
+def _extension_for_filetype(filetype):
+    if filetype == "CSV (.csv)":
+        return ".csv"
+    if filetype == "XML (.xml)":
+        return ".xml"
+    if filetype == "JSON (.json)":
+        return ".json"
+    return ".xlsx"
+
+
+def _file_dialog_filter(filetype):
+    if filetype == "CSV (.csv)":
+        return "CSV files (*.csv)"
+    if filetype == "XML (.xml)":
+        return "XML files (*.xml)"
+    if filetype == "JSON (.json)":
+        return "JSON files (*.json)"
+    return "XLSX files (*.xlsx)"
+
+
+def _normalise_output_path(path, extension):
+    root, ext = os.path.splitext(path)
+    if ext.lower() == extension.lower():
+        return path
+    return root + extension
+
+
+def _escape_xml_text(value):
+    text = "" if value is None else str(value)
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
+def _xlsx_col_name(col_idx):
+    name = ""
+    while col_idx > 0:
+        col_idx, rem = divmod(col_idx - 1, 26)
+        name = chr(65 + rem) + name
+    return name
+
+
+def _write_rows_csv(path, rows):
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerows(rows)
+
+
+def _write_rows_json(path, rows):
+    payload = {"rows": rows}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+
+
+def _write_rows_xml(path, rows):
+    out = ['<?xml version="1.0" encoding="UTF-8"?>', "<stub-arms-export>"]
+    for row_idx, row in enumerate(rows, start=1):
+        out.append(f'  <row index="{row_idx}">')
+        for col_idx, value in enumerate(row, start=1):
+            out.append(f'    <cell column="{col_idx}">{_escape_xml_text(value)}</cell>')
+        out.append("  </row>")
+    out.append("</stub-arms-export>")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(out))
+
+
+def _write_rows_xlsx(path, rows):
+    rows_xml = []
+    for row_idx, row in enumerate(rows, start=1):
+        cells_xml = []
+        for col_idx, value in enumerate(row, start=1):
+            cell_ref = f"{_xlsx_col_name(col_idx)}{row_idx}"
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+                    txt = _escape_xml_text(value)
+                    cell_xml = f'<c r="{cell_ref}" t="inlineStr"><is><t>{txt}</t></is></c>'
+                else:
+                    cell_xml = f'<c r="{cell_ref}"><v>{value}</v></c>'
+            else:
+                txt = _escape_xml_text(value)
+                cell_xml = f'<c r="{cell_ref}" t="inlineStr"><is><t>{txt}</t></is></c>'
+            cells_xml.append(cell_xml)
+        rows_xml.append(f'<row r="{row_idx}">{"".join(cells_xml)}</row>')
+
+    worksheet_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        f'<sheetData>{"".join(rows_xml)}</sheetData></worksheet>'
+    )
+    content_types = """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+    <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+    <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+    <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>"""
+    rels_rels = """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+    <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+    <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>"""
+    workbook_rels = """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>"""
+    workbook_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <sheets>
+        <sheet name="StubArmsExport" sheetId="1" r:id="rId1"/>
+    </sheets>
+</workbook>"""
+    core_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <dc:creator>PhilsDesignTools</dc:creator>
+    <cp:lastModifiedBy>PhilsDesignTools</cp:lastModifiedBy>
+    <dcterms:created xsi:type="dcterms:W3CDTF">2026-03-24T00:00:00Z</dcterms:created>
+    <dcterms:modified xsi:type="dcterms:W3CDTF">2026-03-24T00:00:00Z</dcterms:modified>
+</cp:coreProperties>"""
+    app_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+    <Application>PhilsDesignTools</Application>
+</Properties>"""
+
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as xlsx:
+        xlsx.writestr("[Content_Types].xml", content_types)
+        xlsx.writestr("_rels/.rels", rels_rels)
+        xlsx.writestr("xl/_rels/workbook.xml.rels", workbook_rels)
+        xlsx.writestr("xl/workbook.xml", workbook_xml)
+        xlsx.writestr("xl/worksheets/sheet1.xml", worksheet_xml)
+        xlsx.writestr("docProps/core.xml", core_xml)
+        xlsx.writestr("docProps/app.xml", app_xml)
+
+
+def _write_export_rows(path, filetype, rows):
+    if filetype == "CSV (.csv)":
+        _write_rows_csv(path, rows)
+        return
+    if filetype == "XML (.xml)":
+        _write_rows_xml(path, rows)
+        return
+    if filetype == "JSON (.json)":
+        _write_rows_json(path, rows)
+        return
+    _write_rows_xlsx(path, rows)
+
+
 def _execute(args):
     cmd = args.command
     inputs = cmd.commandInputs
@@ -609,9 +836,23 @@ def _execute(args):
     detail_in = adsk.core.BoolValueCommandInput.cast(
         inputs.itemById(DETAIL_BY_COLUMN_ID)
     )
+    export_filetype_in = adsk.core.DropDownCommandInput.cast(
+        inputs.itemById(EXPORT_FILE_TYPE_ID)
+    )
+    screws_per_stub_arm_in = adsk.core.IntegerSpinnerCommandInput.cast(
+        inputs.itemById(SCREWS_PER_STUB_ARM_ID)
+    )
     include_subcomponents = include_sub_in.value if include_sub_in else True
     visible_only = visible_only_in.value if visible_only_in else True
     include_details = detail_in.value if detail_in else False
+    screws_per_stub_arm = (
+        screws_per_stub_arm_in.value
+        if screws_per_stub_arm_in
+        else SCREWS_PER_STUB_ARM_DEFAULT
+    )
+    export_filetype = EXPORT_FILE_TYPE_DEFAULT
+    if export_filetype_in and export_filetype_in.selectedItem:
+        export_filetype = export_filetype_in.selectedItem.name
 
     lines = _iterate_selected_lines(sel_input, include_subcomponents, visible_only)
 
@@ -744,14 +985,16 @@ def _execute(args):
     ui = ctx.ui()
     file_dlg = ui.createFileDialog()
     file_dlg.isMultiSelectEnabled = False
-    file_dlg.title = "Export Stub Arms to CSV"
-    file_dlg.filter = "CSV files (*.csv)"
-    file_dlg.initialFilename = "Stub_Arms_Export.csv"
+    out_ext = _extension_for_filetype(export_filetype)
+    file_dlg.title = f"Export Stub Arms to {out_ext[1:].upper()}"
+    file_dlg.filter = _file_dialog_filter(export_filetype)
+    file_dlg.initialFilename = "Stub_Arms_Export" + out_ext
 
     if file_dlg.showSave() != adsk.core.DialogResults.DialogOK:
         return
 
-    out_path = file_dlg.filename
+    out_path = _normalise_output_path(file_dlg.filename, out_ext)
+    stub_arm_screw_total = total * screws_per_stub_arm
 
     rows = []
     rows.append(["EA 40x3 Stock lengths (mm)", "Quantity"])
@@ -779,7 +1022,9 @@ def _execute(args):
     rows.append(["Spacer blocks", bracket_total])
     rows.append(["Bracket bolts + nylock nuts (M10x40)", bracket_total])
     rows.append(["Block screws (40mm timber)", bracket_total * 4])
-    rows.append(["Stub arm screws (S500)", total * 3])
+    rows.append(
+        [f"Stub arm screws (S500, {screws_per_stub_arm} per stub arm)", stub_arm_screw_total]
+    )
     if include_details:
         rows.append([])
         rows.append(["Column", "Position", "Stock length (mm)", "Profile size", "Member", "Bracket"])
@@ -794,8 +1039,7 @@ def _execute(args):
             for idx, entry in enumerate(entries, start=1):
                 rows.append([col, idx, int(round(entry[1])), entry[2], entry[3], entry[4]])
 
-    with open(out_path, "w", newline="") as f:
-        csv.writer(f).writerows(rows)
+    _write_export_rows(out_path, export_filetype, rows)
 
     logger.log_command(
         CMD_NAME,
@@ -810,7 +1054,9 @@ def _execute(args):
             "brackets_swivel": bracket_swivel,
             "brackets_unknown": bracket_unknown,
             "brackets_total": bracket_total,
-            "stub_arm_screws": total * 3,
+            "screws_per_stub_arm": screws_per_stub_arm,
+            "stub_arm_screws": stub_arm_screw_total,
+            "export_filetype": export_filetype,
             "visible_only": visible_only,
             "detail_breakdown": include_details,
             "output": out_path,
@@ -818,8 +1064,9 @@ def _execute(args):
     )
 
     ui.messageBox(
-        "Stub arms CSV export complete.\n"
+        "Stub arms export complete.\n"
         f"File: {out_path}\n"
+        f"Format: {export_filetype}\n"
         f"Total stub arm lines: {total}"
     )
 

@@ -6,6 +6,11 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Add a brief entry to this DEVLOG for each change set.
 - Update CHANGELOG.md under Unreleased for user-facing changes.
 
+## 2026-03-24
+- Stub Arms Export: added a "Stub arm screws per stub arm" integer input in the CSV export UI and changed the default screw count from 3 to 2.
+- Stub Arms Export: added filetype selection (XLSX/CSV/XML/JSON), switched the command default to XLSX, and updated output writing per selected format.
+- Stub Arms Export: fixed mixed-selection ordering/count issues by filtering to real stub-arm lines only and deduplicating native/occurrence duplicate lines by world-geometry key.
+
 ## 2026-01-02
 - Added add-in scoped CHANGELOG.md, DEVLOG.md, and README.md for development tracking.
 - Added WORKFLOW.md capturing the workflow map and agreed rules.
