@@ -7,6 +7,10 @@ the previous add-in folder before overwriting files in the Fusion add-ins path.
 - Branch: feature/in-development
 - Summary: Stub Arms Export upgraded with filetype selection (XLSX default), screws-per-stub-arm setting (default 2), mixed-selection filtering, duplicate line dedupe, and bumped PhilsDesignTools version to 1.0.5.
 
+## 2026-03-30 09:56
+- Branch: feature/in-development
+- Summary: Upgraded IGES export to Multi Part File Export (STEP/STL/IGES/SAT/SMT/F3D + build-dependent formats), removed length text from generated member names and Batch Rename outputs, and bumped PhilsDesignTools version to 1.0.6.
+
 ## 2026-01-22 03:00
 - Branch: feature/in-development
 - Summary: Stub Arms To Wall overhaul (on-face polygon hits, wall face/body/occurrence selection, column body/occurrence auto face, stub arm lines component, wall clearance with lower-line adjust/drop, no guide lines or wall sketches).

@@ -154,9 +154,8 @@ def _create_ea_for_line(design, root, um, sk_line, idx,
     occ = root.occurrences.addNewComponent(mat)
     comp = occ.component
 
-    cc_mm = um.convert(cc_len_u, um.internalUnits, "mm")
     comp.name = (
-        f"EA{idx}-{int(round(cc_mm))}mm-"
+        f"EA{idx}-"
         f"{int(round(flange_mm))}x{int(round(flange_mm))}x{int(round(thickness_mm))}"
     )
 
@@ -456,9 +455,8 @@ def _create_shs_for_line(design, root, um, sk_line, idx,
     occ = root.occurrences.addNewComponent(mat)
     comp = occ.component
 
-    cc_mm = um.convert(cc_len_u, um.internalUnits, "mm")
     comp.name = (
-        f"SHS{idx}-{int(round(cc_mm))}mm-"
+        f"SHS{idx}-"
         f"{int(round(size_mm))}x{int(round(size_mm))}x{int(round(thickness_mm))}"
     )
 
@@ -576,9 +574,8 @@ def _create_rhs_for_line(design, root, um, sk_line, idx,
     occ = root.occurrences.addNewComponent(mat)
     comp = occ.component
 
-    cc_mm = um.convert(cc_len_u, um.internalUnits, "mm")
     comp.name = (
-        f"RHS{idx}-{int(round(cc_mm))}mm-"
+        f"RHS{idx}-"
         f"{int(round(width_mm))}x{int(round(depth_mm))}x{int(round(thickness_mm))}"
     )
 

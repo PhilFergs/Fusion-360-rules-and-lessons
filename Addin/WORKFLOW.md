@@ -70,12 +70,12 @@ package and deploy location:
   - EA holes: through the closest member (EA or RHS/SHS).
 
 ## Naming convention
-Format: `{SectorLetter}-{TypeWithIndex}-{Size}-{Length}mm`
+Format: `{SectorLetter}-{TypeWithIndex}-{Size}`
 
 Examples:
-- `P-C1-100x50x3-2400mm`
-- `I-CA2-100x50x3-1800mm`
-- `S-EAH5-50x50x3-600mm`
+- `P-C1-100x50x3`
+- `I-CA2-100x50x3`
+- `S-EAH5-50x50x3`
 
 TypeWithIndex examples:
 - `C1` = column

@@ -9,7 +9,7 @@ import smg_logger as logger
 
 CMD_ID = "PhilsDesignTools_EA_BatchRename"
 CMD_NAME = "Batch Rename"
-CMD_TOOLTIP = "Rename steel members by selection order with length-based naming."
+CMD_TOOLTIP = "Rename steel members by selection order."
 RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 
 SELECTION_INPUT_ID = "EA_BatchRename_Selection"
@@ -82,8 +82,6 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
             design = _get_active_design()
             if not design:
                 return
-
-            units_mgr = design.unitsManager
 
             cmd = args.command
             inputs = cmd.commandInputs
@@ -230,18 +228,12 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
             current_index = start_index
 
             for occ in occurrences:
-                length_mm = _compute_length_mm_longest_edge(occ, units_mgr)
-                if length_mm is None:
-                    length_label = "UNKNOWN"
-                else:
-                    length_label = f"{int(round(length_mm))}"
-
                 # Build final name.
                 if use_decimal:
                     idx_label = f"{current_index:.1f}"
                 else:
                     idx_label = f"{int(round(current_index))}"
-                new_name = f"{prefix}{idx_label}-{length_label}mm-{size_suffix}"
+                new_name = f"{prefix}{idx_label}-{size_suffix}"
 
                 renamed = False
                 old_label = ""
@@ -357,60 +349,6 @@ def _resolve_occurrence_from_entity(entity, design: adsk.fusion.Design):
 
     # Anything else (sketch, face, edge, etc.) is ignored.
     return None
-
-
-def _compute_length_mm_longest_edge(
-    occ: adsk.fusion.Occurrence,
-    units_mgr: adsk.fusion.FusionUnitsManager
-):
-    """
-    Compute the member length as the length of the longest straight edge
-    in the occurrence (true overall member length), independent of orientation.
-    """
-    if not occ:
-        return None
-
-    try:
-        bodies = occ.bRepBodies
-        if not bodies or bodies.count == 0:
-            return None
-
-        xform = occ.transform
-        has_xform = xform is not None
-
-        max_len_internal = 0.0
-
-        for body in bodies:
-            for edge in body.edges:
-                # Only consider edges with two endpoints (line-like edges).
-                try:
-                    v1 = edge.startVertex.geometry
-                    v2 = edge.endVertex.geometry
-                except:
-                    continue
-
-                p1 = v1.copy()
-                p2 = v2.copy()
-
-                if has_xform:
-                    p1.transformBy(xform)
-                    p2.transformBy(xform)
-
-                dx = p2.x - p1.x
-                dy = p2.y - p1.y
-                dz = p2.z - p1.z
-                d = (dx * dx + dy * dy + dz * dz) ** 0.5
-                if d > max_len_internal:
-                    max_len_internal = d
-
-        if max_len_internal <= 0.0:
-            return None
-
-        internal_units = units_mgr.internalUnits
-        return units_mgr.convert(max_len_internal, internal_units, "mm")
-
-    except:
-        return None
 
 
 def _build_target_index_labels(start_index, step, count, use_decimal):

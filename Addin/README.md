@@ -5,8 +5,8 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 ## What it does
 - Generates EA, SHS, and RHS steel members from sketch lines.
 - Provides a rotate tool for generated steel members.
-- Batch renames EA/steel members by selection order with length-based naming.
-- Exports EA hole locations to CSV and leaf components to IGES.
+- Batch renames EA/steel members by selection order without length in the generated name.
+- Exports EA hole locations to CSV and leaf components to multiple CAD file formats.
 - Creates component sets, wireframe centrelines, and hole cuts from faces.
 
 ## Install (Fusion 360)
@@ -16,7 +16,7 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 ## Commands
 - PhilsDesignTools panel: EA From Lines, SHS From Lines, RHS From Lines, Rotate Steel Member,
   Batch Rename, Split Body (Keep Side), Split Body Delete, EA Hole Export CSV,
-  IGES Component Export, New Component Set, Wireframe From Body, Hole Cut From Face,
+  Multi Part File Export, New Component Set, Wireframe From Body, Hole Cut From Face,
   Stub Arms To Wall, Stub Arms Export, Stub Arms Set Bracket
 
 ## Tool instructions
@@ -28,7 +28,7 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - Split Body (Keep Side): Select body and split tool, set Extend if needed, choose keep or delete mode, then OK.
 - Split Body Delete: Select a body to delete after a split, then OK.
 - EA Hole Export CSV: Select components/occurrences/bodies, choose a CSV path, then OK.
-- IGES Component Export: Select components/occurrences/bodies, choose folder, confirm linked export choice, then OK.
+- Multi Part File Export: Select components/occurrences/bodies, choose file type (STEP/STL/IGES/SAT/SMT/F3D and any other supported format available in your Fusion build), choose folder, confirm linked export choice, then OK.
 - New Component Set: Enter prefix, number range (for example 1-40), and suffix, then OK.
 - Wireframe From Body: Select solid bodies (6 faces), then OK to create centerline sketches and hide bodies.
 - Hole Cut From Face: Select a cylindrical hole face and a target body, then OK to cut.
@@ -41,3 +41,14 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - Keep cache/log files out of git; see `Addin/.gitignore`.
 - Every new command must include debug logging (DEBUG flag + detailed failure reasons) alongside the standard command summary log.
 - Before modifying `Addin/PhilsDesignTools/smg_stub_arms.py`, create a timestamped backup in the same folder: `smg_stub_arms.py.bak-YYYYMMDD-HHMMSS`, and note the backup name in the chat.
+
+## Installer package (for other PCs)
+- Installer source: `Addin/tools/installer`
+- Build package:
+  - `powershell -ExecutionPolicy Bypass -File Addin/tools/installer/build_installer_package.ps1`
+- Output package:
+  - `Addin/tools/dist/fusion360-addins-installer-pdt-<version>-bom-<version>.zip`
+- User install flow:
+  - Unzip package.
+  - Run `Install_Fusion_Addins.cmd`.
+  - Script checks for Fusion 360, installs both add-ins, and overwrites existing versions (with backups by default).

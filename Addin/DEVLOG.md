@@ -6,10 +6,20 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Add a brief entry to this DEVLOG for each change set.
 - Update CHANGELOG.md under Unreleased for user-facing changes.
 
+## 2026-03-30
+- Reworked the former IGES export command into **Multi Part File Export** with a file type dropdown in the command UI.
+- Added multi-format export support for STEP/STL/IGES/SAT/SMT/F3D, with dynamic availability checks based on the running Fusion build.
+- Added a guarded Rhino 3DM option that reports a clear message when that export API is unavailable in the current Fusion version.
+- Removed length text from generated member names across EA/SHS/RHS generation and Batch Rename (for example `WP10-4500mm-75x5` -> `WP10-75x5`).
+
 ## 2026-03-24
 - Stub Arms Export: added a "Stub arm screws per stub arm" integer input in the CSV export UI and changed the default screw count from 3 to 2.
 - Stub Arms Export: added filetype selection (XLSX/CSV/XML/JSON), switched the command default to XLSX, and updated output writing per selected format.
 - Stub Arms Export: fixed mixed-selection ordering/count issues by filtering to real stub-arm lines only and deduplicating native/occurrence duplicate lines by world-geometry key.
+- Added `Addin/tools/installer/install_fusion_addins.ps1` to detect Fusion 360 and install/overwrite both add-ins from packaged payload zips.
+- Added `Addin/tools/installer/build_installer_package.ps1` to generate a shareable installer package zip for any Windows PC.
+- Added `Addin/tools/installer/README.md` with build and end-user install instructions.
+- Installer hotfix: fixed quoted PackageRoot handling (trailing `\"` path issue) by sanitizing `-PackageRoot` in PowerShell and using `%~dp0.` in the CMD launcher.
 
 ## 2026-01-02
 - Added add-in scoped CHANGELOG.md, DEVLOG.md, and README.md for development tracking.

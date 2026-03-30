@@ -59,5 +59,9 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Stub Arms Export: added a "Stub arm screws per stub arm" UI input and changed the default from 3 to 2.
 - Stub Arms Export: added an export filetype dropdown (XLSX/CSV/XML/JSON) with XLSX as the default.
 - Stub Arms Export: mixed selections now ignore non-stub sketch lines and dedupe duplicate native/occurrence lines so per-column EA ordering stays correct.
+- Added a generic installer package workflow under `Addin/tools/installer` that checks Fusion 360 presence and installs/overwrites both add-ins (PhilsDesignTools + PhilsBom.bundle) for the current user.
+- Installer package: fixed `Illegal characters in path` on some PCs by hardening PackageRoot normalization and launcher path quoting.
 - PhilsBom: bumped bundle metadata and distribution to version 1.03 after adding the linked-root option.
-- IGES Component Export: selection filters now ignore unsupported filter types to avoid UI errors.
+- Multi Part File Export: replaced the IGES-only export flow with selectable file types (STEP/STL/IGES/SAT/SMT/F3D, plus build-dependent formats when available).
+- Multi Part File Export: selection filters now ignore unsupported filter types to avoid UI errors.
+- EA/SHS/RHS generation and Batch Rename: removed length segments (for example `-4500mm-`) from generated component names.
