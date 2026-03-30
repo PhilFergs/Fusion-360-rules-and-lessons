@@ -2,7 +2,7 @@
 
 This repo contains two ready-to-install zip packages:
 
-- PhilsDesignTools-1.0.5.zip
+- PhilsDesignTools-1.0.6.zip
   - Steel member generation + utilities (EA/SHS/RHS, rotate, rename, hole cut, stub arms, exports).
 - PhilsBom.bundle-1.03.zip
   - BOM export add-in (CSV/XLSX/XML/JSON, unit control, include/exclude options, mass totals).
