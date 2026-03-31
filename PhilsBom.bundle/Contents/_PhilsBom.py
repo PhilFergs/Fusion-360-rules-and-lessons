@@ -2150,15 +2150,14 @@ def CreateBOM():
                 folderName = ""
 
             found_index = None
+            comp_name_clean = CleanFusionCompNameInserts(comp.name)
             for idx, bomI in enumerate(bom):
                 if BOMCreationMethod == "Grouped By Component":
                     if bomI["component"] == comp:
-                        parentPathWithoutPartPath = GetParentPath(occPath)
-                        if bomI["parentpath"] == parentPathWithoutPartPath:
-                            found_index = idx
-                            break
+                        found_index = idx
+                        break
                 else:
-                    if bomI["name"] == comp.name:
+                    if CleanFusionCompNameInserts(bomI["name"]) == comp_name_clean:
                         found_index = idx
                         break
 
@@ -2179,7 +2178,7 @@ def CreateBOM():
                     "parentpath": GetParentPath(occPath),
                     "folder": folderName,
                     "partnumber": comp.partNumber,
-                    "name": comp.name,
+                    "name": comp_name_clean,
                     "instances": 1,
                     "quantity": 1,
                     "volume": GetBodiesVolume(comp.bRepBodies, BOMCreationMethod),

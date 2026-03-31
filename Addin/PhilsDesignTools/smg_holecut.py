@@ -230,14 +230,26 @@ def _find_axis_hit_face(comp, body, origin, axis):
 
     def _scan(dir_vec):
         hits = adsk.core.ObjectCollection.create()
-        ents = comp.findBRepUsingRay(
-            origin,
-            dir_vec,
-            adsk.fusion.BRepEntityTypes.BRepFaceEntityType,
-            0.02,
-            True,
-            hits,
-        )
+        try:
+            ents = comp.findBRepUsingRay(
+                origin,
+                dir_vec,
+                adsk.fusion.BRepEntityTypes.BRepFaceEntityType,
+                0.02,
+                True,
+                hits,
+            )
+        except Exception as ex:
+            _dbg(
+                "ray face scan failed",
+                {
+                    "err": str(ex),
+                    "origin": _fmt_point(origin),
+                    "dir": _fmt_vec(dir_vec),
+                    "comp": getattr(comp, "name", None),
+                },
+            )
+            return None, None
         if not ents:
             return None, None
         for i in range(ents.count):

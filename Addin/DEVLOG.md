@@ -11,6 +11,9 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Added multi-format export support for STEP/STL/IGES/SAT/SMT/F3D, with dynamic availability checks based on the running Fusion build.
 - Added a guarded Rhino 3DM option that reports a clear message when that export API is unavailable in the current Fusion version.
 - Removed length text from generated member names across EA/SHS/RHS generation and Batch Rename (for example `WP10-4500mm-75x5` -> `WP10-75x5`).
+- Added a new **Remove Length From Names** toolbar command to clean up already-generated components by removing only `-####mm-` from names.
+- Added a **Bulk Replace Components** toolbar command that uses Fusion's cloud file picker and external reference replacement API to replace multiple selected external targets in one run.
+- Bulk Replace Components: removed cloud dialog extension filtering (`*.f3d/*.f3z`) because it hid valid Fusion cloud design items in some folders.
 
 ## 2026-03-24
 - Stub Arms Export: added a "Stub arm screws per stub arm" integer input in the CSV export UI and changed the default screw count from 3 to 2.

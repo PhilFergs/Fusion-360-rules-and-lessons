@@ -17,7 +17,8 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - PhilsDesignTools panel: EA From Lines, SHS From Lines, RHS From Lines, Rotate Steel Member,
   Batch Rename, Split Body (Keep Side), Split Body Delete, EA Hole Export CSV,
   Multi Part File Export, New Component Set, Wireframe From Body, Hole Cut From Face,
-  Stub Arms To Wall, Stub Arms Export, Stub Arms Set Bracket
+  Stub Arms To Wall, Stub Arms Export, Stub Arms Set Bracket, Remove Length From Names,
+  Bulk Replace Components
 
 ## Tool instructions
 - EA From Lines: Select sketch lines, set flange/thickness/extra/holes/angle, then OK.
@@ -25,6 +26,8 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - RHS From Lines: Select sketch lines, set width/depth/thickness/extra/angle, then OK.
 - Rotate Steel Member: Select member occurrences, choose 90 or -90, then OK.
 - Batch Rename: Select member occurrences, set prefix/start index/size suffix, then OK.
+- Remove Length From Names: One-click cleanup to remove only `-####mm-` from existing component and occurrence names.
+- Bulk Replace Components: Select multiple external target occurrences, then choose one external replacement design in the Fusion cloud file picker to replace all targets in one action.
 - Split Body (Keep Side): Select body and split tool, set Extend if needed, choose keep or delete mode, then OK.
 - Split Body Delete: Select a body to delete after a split, then OK.
 - EA Hole Export CSV: Select components/occurrences/bodies, choose a CSV path, then OK.

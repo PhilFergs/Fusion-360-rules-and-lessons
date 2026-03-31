@@ -1,3 +1,59 @@
+# Bulk Replace Components Command
+
+Date: 2026-03-30
+
+## Plan
+- [x] Back up files before edits
+- [x] Add new toolbar command module for bulk component replacement
+- [x] Register command in add-in startup/shutdown command lists
+- [x] Add icon resources for the new command
+- [x] Update README/CHANGELOG/DEVLOG notes
+- [x] Run syntax checks
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/PhilsDesignTools.py.bak-20260330-111749`
+  - `Addin/README.md.bak-20260330-111749`
+  - `Addin/CHANGELOG.md.bak-20260330-111749`
+  - `Addin/DEVLOG.md.bak-20260330-111749`
+  - `tasks/todo.md.bak-20260330-111749`
+- New command module:
+  - `Addin/PhilsDesignTools/smg_bulk_replace_components.py`
+- New toolbar command id:
+  - `PhilsDesignTools_BulkReplaceComponents`
+- New resources folder:
+  - `Addin/PhilsDesignTools/resources/PhilsDesignTools_BulkReplaceComponents`
+- Replacement source flow:
+  - Uses Fusion cloud picker (`createCloudFileDialog`) + `Occurrence.replace(newFile, replaceAll)` for external designs (same model as the built-in replace workflow).
+- Picker compatibility fix:
+  - Removed `*.f3d/*.f3z` cloud dialog filter because it hid valid Fusion cloud items in some project folders.
+
+# Remove Length Cleanup Command
+
+Date: 2026-03-30
+
+## Plan
+- [x] Back up files before edits
+- [x] Add a one-click toolbar command to remove `-####mm-` from existing names
+- [x] Register command in add-in startup/shutdown
+- [x] Add command icon resources
+- [x] Update README/CHANGELOG/DEVLOG notes
+- [x] Run syntax checks
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/PhilsDesignTools.py.bak-20260330-104221`
+  - `Addin/README.md.bak-20260330-104221`
+  - `Addin/CHANGELOG.md.bak-20260330-104221`
+  - `Addin/DEVLOG.md.bak-20260330-104221`
+  - `tasks/todo.md.bak-20260330-104221`
+- New command module:
+  - `Addin/PhilsDesignTools/smg_remove_length_names.py`
+- New toolbar command id:
+  - `PhilsDesignTools_RemoveLengthNames`
+- New resources folder:
+  - `Addin/PhilsDesignTools/resources/PhilsDesignTools_RemoveLengthNames`
+
 # Component Name Length Removal
 
 Date: 2026-03-30
@@ -104,4 +160,74 @@ Date: 2026-03-24
   - `cmd /c "Addin\tools\installer\_build\fusion360-addins-installer\Install_Fusion_Addins.cmd --quiet -DryRun"`
 - Hotfix:
   - Fixed `Illegal characters in path` from quoted trailing-backslash PackageRoot on some PCs.
+
+# PhilsBom Duplicate Grouping Fix
+
+Date: 2026-03-31
+
+## Plan
+- [x] Back up files before edits
+- [x] Fix grouping keys so identical parts merge reliably
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `PhilsBom.bundle/Contents/_PhilsBom.py.bak-20260331-103830`
+  - `tasks/todo.md.bak-20260331-103830`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsBom.bundle\Contents\_PhilsBom.py.bak-20260331-103929`
+- Grouping logic updated:
+  - `Grouped By Component` now merges by component identity globally (no parent-path split).
+  - `Grouped By Part Name` now compares cleaned names (`CleanFusionCompNameInserts`) so Fusion insert suffixes do not fragment quantities.
+- Syntax check passed:
+  - `py -3 -m py_compile PhilsBom.bundle/Contents/_PhilsBom.py`
+
+# Remove Length From Body Names
+
+Date: 2026-03-31
+
+## Plan
+- [x] Back up files before edits
+- [x] Extend Remove Length From Names to also rename body names
+- [x] Run syntax checks
+- [x] Mirror updated command file to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/smg_remove_length_names.py.bak-20260331-132804`
+  - `tasks/todo.md.bak-20260331-132804`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_remove_length_names.py.bak-20260331-132846`
+- Command behavior updated:
+  - `Remove Length From Names` now strips `-####mm-` from body names in addition to components and occurrences.
+  - Command summary and command log now include a `Bodies renamed` count.
+- Syntax check passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_remove_length_names.py`
+
+# Remove Length Targets UI
+
+Date: 2026-03-31
+
+## Plan
+- [x] Back up files before edits
+- [x] Add checkboxes for Components, Bodies, and Sketches
+- [x] Apply rename pass only to selected target types
+- [x] Run syntax checks
+- [x] Mirror updated command file to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/smg_remove_length_names.py.bak-20260331-135045`
+  - `tasks/todo.md.bak-20260331-135045`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_remove_length_names.py.bak-20260331-135212`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_remove_length_names.py.bak-20260331-135309`
+- Command UI now includes three checkboxes:
+  - `Components`
+  - `Bodies`
+  - `Sketches`
+- Runtime behavior:
+  - Renaming runs only for checked target types.
+  - If none are checked, command shows a validation message and exits.
+  - Summary and command log include only selected target counts.
+- Syntax check passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_remove_length_names.py`
 

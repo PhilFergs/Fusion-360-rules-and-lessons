@@ -38,6 +38,8 @@ def run(context):
         import smg_stub_arms_export as stub_arms_export_mod
         import smg_stub_arms_bracket as stub_arms_bracket_mod
         import smg_sort_components as sort_components_mod
+        import smg_remove_length_names as remove_length_names_mod
+        import smg_bulk_replace_components as bulk_replace_components_mod
         import smg_logger as logger
 
         # Initialise shared context (app, ui, handler store, etc.).
@@ -106,6 +108,8 @@ def run(context):
             "PhilsDesignTools_StubArms_Export_CSV",
             "PhilsDesignTools_StubArms_SetBracket",
             "PhilsDesignTools_SortComponents",
+            "PhilsDesignTools_RemoveLengthNames",
+            "PhilsDesignTools_BulkReplaceComponents",
         ]
 
         legacy_panels = []
@@ -139,6 +143,8 @@ def run(context):
         stub_arms_export_mod.register(ui, panel)
         stub_arms_bracket_mod.register(ui, panel)
         sort_components_mod.register(ui, panel)
+        remove_length_names_mod.register(ui, panel)
+        bulk_replace_components_mod.register(ui, panel)
 
     except:
         try:
@@ -173,6 +179,8 @@ def stop(context):
             "PhilsDesignTools_StubArms_Export_CSV",
             "PhilsDesignTools_StubArms_SetBracket",
             "PhilsDesignTools_SortComponents",
+            "PhilsDesignTools_RemoveLengthNames",
+            "PhilsDesignTools_BulkReplaceComponents",
         ]
 
         if ws:

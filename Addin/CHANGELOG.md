@@ -30,6 +30,9 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Sort Components: sort child occurrences by name under selected parents (supports whole design + recursive).
 - Sort Components: can enable design history automatically when running in Direct Modeling mode.
 - Sort Components: hardened timeline index access to avoid internal validation errors.
+- Remove Length From Names: one-click command to strip only the `-####mm-` segment from existing component and occurrence names.
+- Bulk Replace Components: replace multiple selected external target occurrences using one externally selected replacement design (Fusion cloud file picker) in a single run.
+- Bulk Replace Components: removed restrictive cloud picker file filter so Fusion design items appear correctly in project folders.
 ### Changed
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.
