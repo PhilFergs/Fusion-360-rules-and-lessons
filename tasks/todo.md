@@ -231,3 +231,85 @@ Date: 2026-03-31
 - Syntax check passed:
   - `py -3 -m py_compile Addin/PhilsDesignTools/smg_remove_length_names.py`
 
+# PhilsBom Profile Split Option
+
+Date: 2026-04-01
+
+## Plan
+- [x] Back up files before edits
+- [x] Add BOM settings checkbox to split profile size from part name into Material
+- [x] Apply split during export row generation (Part Name/Part Number + Material columns)
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `PhilsBom.bundle/Contents/_PhilsBom.py.bak-20260401-074740`
+  - `tasks/todo.md.bak-20260401-074740`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsBom.bundle\Contents\_PhilsBom.py.bak-20260401-075045`
+- New setting:
+  - `_splitProfileToMaterial` (default `False`)
+  - UI label: `Split profile size into Material column`
+- Export behavior when enabled:
+  - `Part Name` / `Part Number` use the base token before the final profile suffix (for example `C13` from `C13-100x50x3`).
+  - `Material` uses the parsed profile token when present (for example `100x50x3`).
+  - Non-matching names keep current behavior unchanged.
+- Syntax check passed:
+  - `py -3 -m py_compile PhilsBom.bundle/Contents/_PhilsBom.py`
+
+# EA Hole Export Summary Mode
+
+Date: 2026-04-01
+
+## Plan
+- [x] Back up files before edits
+- [x] Add export mode option (Detailed holes / Summary by member)
+- [x] Add CSV/XLSX output choice
+- [x] Implement summary rows: name, profile/material token, total length, standard-2-hole flag
+- [x] Run syntax checks
+- [x] Mirror updated command to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/smg_ea_hole_export.py.bak-20260401-082651`
+  - `tasks/todo.md.bak-20260401-082651`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_ea_hole_export.py.bak-20260401-082950`
+- New UI options in EA Hole Export:
+  - `Export Mode`: `Detailed (one row per hole)` or `Summary (one row per member)`
+  - `File Type`: `XLSX (.xlsx)` or `CSV (.csv)` (default is XLSX)
+- Summary mode output columns:
+  - `PartName`
+  - `Material/Profile`
+  - `TotalLength_mm`
+  - `Standard2Hole` (`Yes` / `No`)
+- Name/profile split behavior:
+  - Parses names like `C13-100x50x3` into `PartName=C13`, `Material/Profile=100x50x3`.
+  - Falls back to body material when a profile token is not present in the name.
+- Syntax check passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_ea_hole_export.py`
+
+# PhilsBom Natural Sort
+
+Date: 2026-04-01
+
+## Plan
+- [x] Add natural-sort helper for BOM row names (B1, B2, ... B10)
+- [x] Apply natural sort to non-indented BOM methods before export
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in locations
+
+## Verification Notes
+- Added sort helpers:
+  - `_natural_sort_key(text)` for mixed text/number ordering
+  - `_bom_row_sort_key(item)` for stable row ordering
+- Applied export ordering:
+  - All non-indented BOM methods now sort naturally by name (then part number/material/path).
+  - Indented BOM remains level-ordered as before.
+- Syntax check passed:
+  - `py -3 -m py_compile PhilsBom.bundle/Contents/_PhilsBom.py`
+  - `py -3 -m py_compile` on active installed copies (API/AddIns, ApplicationPlugins, Autorun)
+- Active copy backups:
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsBom.bundle\Contents\_PhilsBom.py.bak-20260401-083908`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\ApplicationPlugins\PhilsBom.bundle\Contents\_PhilsBom.py.bak-20260401-083908`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\MyScripts\Autorun\PhilsBom.bundle\Contents\_PhilsBom.py.bak-20260401-083908`
+

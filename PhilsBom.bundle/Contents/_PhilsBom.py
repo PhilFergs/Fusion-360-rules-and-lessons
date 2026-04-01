@@ -58,6 +58,7 @@ TITLE_INCLUDE_HIDDEN_ITEMS = "Include Hidden Items"
 TITLE_INCLUDE_PARENT_COMPONENTS = "Include Parent Components"
 TITLE_INCLUDE_LINKED_COMPONENTS = "Include Linked Components"
 TITLE_LINKED_ROOT_PARENT_ONLY = "Linked components root parent name only"
+TITLE_SPLIT_PROFILE_TO_MATERIAL = "Split profile size into Material column"
 TITLE_COLUMN_GROUP = "BOM Column Options"
 TITLE_COLUMN_TABLE = "Table"
 TITLE_TABLE_BUTTON_MOVE_UP = "Move Up"
@@ -87,6 +88,10 @@ TOOLTIP_INCLUDE_LINKED_COMPONENTS = "Include components that are linked/referenc
 TOOLTIP_LINKED_ROOT_PARENT_ONLY = (
     "When linked components are included, only count the top-level linked component "
     "(skip its subcomponents)"
+)
+TOOLTIP_SPLIT_PROFILE_TO_MATERIAL = (
+    "When enabled, names like C13-100x50x3 export as Part Name/Number C13 "
+    "and Material 100x50x3"
 )
 TOOLTIP_BOM_EXPORT_FILE_TYPE = "The filetype (format) of the exported BOM"
 TOOLTIP_BOM_EXPORT_FILENAME = "The document property used in the filename of the exported BOM"
@@ -150,6 +155,7 @@ LIST_SETTINGS_DEFAULT_DICTIONARY_KEYS = [
     "_BOMCreationMethod",
     "_BOMDelimiterType",
     "_includeHiddenItems",
+    "_splitProfileToMaterial",
     "_initialDirectory",
     "_BOMExportFilenameOption",
 ]
@@ -257,6 +263,26 @@ def MessageBoxDebug(titleString, variable):
 
 def CleanFusionCompNameInserts(name):
     return re.sub(r"\([0-9]+\)", "", str(name)).strip()
+
+
+PROFILE_FROM_NAME_RE = re.compile(
+    r"^(?P<base>.+?)-(?P<profile>\d+(?:\.\d+)?(?:x\d+(?:\.\d+)?){1,3})$",
+    re.IGNORECASE,
+)
+
+
+def SplitNameAndProfile(name):
+    clean_name = CleanFusionCompNameInserts(name)
+    if not clean_name:
+        return "", ""
+    match = PROFILE_FROM_NAME_RE.match(clean_name)
+    if not match:
+        return clean_name, ""
+    base = match.group("base").strip()
+    profile = match.group("profile").strip()
+    if not base:
+        return clean_name, ""
+    return base, profile
 
 
 def CleanDescription(description):
@@ -421,6 +447,7 @@ def _normalize_settings(appSettingsDictionary):
         "_includeParentComponents",
         "_includeLinkedComponents",
         "_linkedRootParentOnly",
+        "_splitProfileToMaterial",
         "_unitsGroup",
         "_lengthUnit",
         "_areaUnit",
@@ -516,6 +543,8 @@ def SettingsDefaultForKey(dictionaryKey):
         return True
     if dictionaryKey == "_linkedRootParentOnly":
         return False
+    if dictionaryKey == "_splitProfileToMaterial":
+        return False
     if dictionaryKey == "_initialDirectory":
         return ""
     if dictionaryKey == "_settingsDictionaryText":
@@ -560,6 +589,7 @@ def SettingsDefaults():
         "_filenameGroup",
         "_includeParentComponents",
         "_includeLinkedComponents",
+        "_splitProfileToMaterial",
         "_unitsGroup",
         "_lengthUnit",
         "_areaUnit",
@@ -678,6 +708,7 @@ def SettingsReset(
     inputIncludeParentComponents,
     inputIncludeLinkedComponents,
     inputLinkedRootParentOnly,
+    inputSplitProfileToMaterial,
     inputBOMExportFileType,
     inputBOMDelimiterType,
     inputSettingsDictionaryText,
@@ -703,6 +734,8 @@ def SettingsReset(
             inputLinkedRootParentOnly.isEnabled = (
                 inputIncludeLinkedComponents.value if inputIncludeLinkedComponents else False
             )
+        if inputSplitProfileToMaterial:
+            inputSplitProfileToMaterial.value = SettingsDefaultForKey("_splitProfileToMaterial")
 
         settingBOMDelimiterType = GetDelimiterDefault()
         for i in range(len(LIST_BOM_DELIMITER_TYPES)):
@@ -1665,11 +1698,33 @@ def _sort_level_key(level_string):
     return key
 
 
+def _natural_sort_key(text):
+    clean = CleanFusionCompNameInserts(text).strip().lower()
+    parts = re.split(r"(\d+)", clean)
+    key = []
+    for part in parts:
+        if part.isdigit():
+            key.append((0, int(part)))
+        else:
+            key.append((1, part))
+    return key
+
+
+def _bom_row_sort_key(item):
+    return (
+        _natural_sort_key(item.get("name", "")),
+        _natural_sort_key(item.get("partnumber", "")),
+        str(item.get("material", "")).lower(),
+        str(item.get("path", "")).lower(),
+    )
+
+
 def CollectData(bom, requiredColumns, BOMCreationMethod, delimiter):
     try:
         csvStr = ""
         appSettingsDictionary = SettingsLoad()
         lengthUnit, areaUnit, volumeUnit, massUnit, comUnit = GetUnitSettings(appSettingsDictionary)
+        splitProfileToMaterial = SettingsGetValueForKey(appSettingsDictionary, "_splitProfileToMaterial")
         _, _, unitPrecision, unitDecimalPoint, unitFootInchDisplayFormat = GetDefaultUnitsType()
         mass_idx = requiredColumns.index("Mass") if "Mass" in requiredColumns else -1
         mass_total = 0.0
@@ -1764,13 +1819,26 @@ def CollectData(bom, requiredColumns, BOMCreationMethod, delimiter):
             desc = item.get("desc", "")
             material = item.get("material", "")
             level = item.get("level", "")
+            display_name = name
+            display_partnumber = partnumber
+            display_material = material
+            if splitProfileToMaterial:
+                base_from_name, profile_from_name = SplitNameAndProfile(name)
+                base_from_partnumber, profile_from_partnumber = SplitNameAndProfile(partnumber)
+                if base_from_name:
+                    display_name = base_from_name
+                if base_from_partnumber:
+                    display_partnumber = base_from_partnumber
+                profile_token = profile_from_partnumber or profile_from_name
+                if profile_token:
+                    display_material = profile_token
 
             row_values = []
             for column in requiredColumns:
                 if column == "Body Name":
                     value = ConvertQuotes(name)
                 elif column == "Part Name":
-                    value = ConvertQuotes(name)
+                    value = ConvertQuotes(display_name)
                 elif column == "Parent Component":
                     value = ConvertQuotes(path)
                 elif column == "Browser Path":
@@ -1778,7 +1846,7 @@ def CollectData(bom, requiredColumns, BOMCreationMethod, delimiter):
                 elif column == "Parent Folder":
                     value = ConvertQuotes(folder)
                 elif column == "Part Number":
-                    value = ConvertQuotes(partnumber)
+                    value = ConvertQuotes(display_partnumber)
                 elif column == "Quantity":
                     value = str(instances)
                 elif column == "Description":
@@ -1790,7 +1858,7 @@ def CollectData(bom, requiredColumns, BOMCreationMethod, delimiter):
                 elif column == "Mass":
                     value = str(mass)
                 elif column == "Material":
-                    value = ConvertQuotes(material)
+                    value = ConvertQuotes(display_material)
                 elif column == "Length":
                     value = str(length)
                 elif column == "Width":
@@ -2190,6 +2258,9 @@ def CreateBOM():
                 }
             )
 
+    if BOMCreationMethod != "Indented":
+        bom = sorted(bom, key=_bom_row_sort_key)
+
     csvStr = CollectData(bom, requiredColumns, BOMCreationMethod, delimiter)
     if not csvStr:
         MessageBox("No BOM data was generated.", 3)
@@ -2391,6 +2462,17 @@ class CommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
             inputLinkedRootParentOnly.tooltip = TOOLTIP_LINKED_ROOT_PARENT_ONLY
             inputLinkedRootParentOnly.isEnabled = bool(settingIncludeLinkedComponents)
 
+            uniqueID = "_splitProfileToMaterial"
+            settingSplitProfileToMaterial = SettingsGetValueForKey(appSettingsDictionary, uniqueID)
+            inputSplitProfileToMaterial = exportGroupInputInputs.addBoolValueInput(
+                COMMAND_ID + uniqueID,
+                TITLE_SPLIT_PROFILE_TO_MATERIAL,
+                True,
+                "",
+                settingSplitProfileToMaterial,
+            )
+            inputSplitProfileToMaterial.tooltip = TOOLTIP_SPLIT_PROFILE_TO_MATERIAL
+
             uniqueID = "_BOMExportFileType"
             settingBOMExportFileType = SettingsGetValueForKey(appSettingsDictionary, uniqueID)
             inputBOMExportFileType = exportGroupInputInputs.addDropDownCommandInput(
@@ -2540,6 +2622,7 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
             inputIncludeParentComponents = GetCommandForUniqueID("_includeParentComponents", command)
             inputIncludeLinkedComponents = GetCommandForUniqueID("_includeLinkedComponents", command)
             inputLinkedRootParentOnly = GetCommandForUniqueID("_linkedRootParentOnly", command)
+            inputSplitProfileToMaterial = GetCommandForUniqueID("_splitProfileToMaterial", command)
             inputBOMExportFileType = GetCommandForUniqueID("_BOMExportFileType", command)
             inputBOMDelimiterType = GetCommandForUniqueID("_BOMDelimiterType", command)
             inputColumnTable = GetCommandForUniqueID("_columnTable", command)
@@ -2563,6 +2646,7 @@ class CommandInputChangedHandler(adsk.core.InputChangedEventHandler):
                     inputIncludeParentComponents,
                     inputIncludeLinkedComponents,
                     inputLinkedRootParentOnly,
+                    inputSplitProfileToMaterial,
                     inputBOMExportFileType,
                     inputBOMDelimiterType,
                     inputSettingsDictionaryText,
@@ -2706,6 +2790,14 @@ class CommandExecutedEventHandler(adsk.core.CommandEventHandler):
                     appSettingsDictionary,
                     settingsKey,
                     inputLinkedRootParentOnly.value if inputLinkedRootParentOnly else False,
+                )
+
+                settingsKey = "_splitProfileToMaterial"
+                inputSplitProfileToMaterial = GetCommandForUniqueID(settingsKey, command)
+                SettingsSetValueForKey(
+                    appSettingsDictionary,
+                    settingsKey,
+                    inputSplitProfileToMaterial.value if inputSplitProfileToMaterial else False,
                 )
 
                 settingsKey = "_BOMExportFileType"

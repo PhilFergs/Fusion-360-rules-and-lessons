@@ -3,18 +3,37 @@ import adsk.fusion
 import traceback
 import csv
 import os
+import re
+import zipfile
 
 import smg_context as ctx
 import smg_logger as logger
 
 CMD_ID = "PhilsDesignTools_EA_HoleExport_CSV"
-CMD_NAME = "EA Hole Export CSV"
-CMD_TOOLTIP = "Export EA hole locations to CSV."
+CMD_NAME = "EA Hole Export"
+CMD_TOOLTIP = "Export EA holes as detailed rows or summary rows in CSV/XLSX."
 RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 
 SELECTION_INPUT_ID = "ea_hole_export_selection"
 FILTER_NON_STANDARD_ID = "ea_hole_export_non_standard"
 INCLUDE_SUBCOMPONENTS_ID = "ea_hole_export_include_subcomponents"
+EXPORT_MODE_ID = "ea_hole_export_mode"
+FILETYPE_ID = "ea_hole_export_filetype"
+
+EXPORT_MODE_DETAILED = "Detailed (one row per hole)"
+EXPORT_MODE_SUMMARY = "Summary (one row per member)"
+EXPORT_MODE_OPTIONS = [EXPORT_MODE_DETAILED, EXPORT_MODE_SUMMARY]
+
+FILETYPE_CSV = "CSV (.csv)"
+FILETYPE_XLSX = "XLSX (.xlsx)"
+FILETYPE_OPTIONS = [FILETYPE_XLSX, FILETYPE_CSV]
+FILETYPE_DEFAULT = FILETYPE_XLSX
+
+FUSION_INSERT_RE = re.compile(r"\([0-9]+\)", re.IGNORECASE)
+PROFILE_FROM_NAME_RE = re.compile(
+    r"^(?P<base>.+?)-(?P<profile>\d+(?:\.\d+)?(?:x\d+(?:\.\d+)?){1,3})$",
+    re.IGNORECASE,
+)
 
 
 class HoleExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -38,6 +57,24 @@ class HoleExportCreatedHandler(adsk.core.CommandCreatedEventHandler):
             except:
                 logger.log("Selection filter 'Components' not supported; ignoring.")
             sel.setSelectionLimits(1, 0)
+
+            mode_input = inputs.addDropDownCommandInput(
+                EXPORT_MODE_ID,
+                "Export Mode",
+                adsk.core.DropDownStyles.TextListDropDownStyle,
+            )
+            mode_items = mode_input.listItems
+            for option in EXPORT_MODE_OPTIONS:
+                mode_items.add(option, option == EXPORT_MODE_SUMMARY, "")
+
+            filetype_input = inputs.addDropDownCommandInput(
+                FILETYPE_ID,
+                "File Type",
+                adsk.core.DropDownStyles.TextListDropDownStyle,
+            )
+            filetype_items = filetype_input.listItems
+            for option in FILETYPE_OPTIONS:
+                filetype_items.add(option, option == FILETYPE_DEFAULT, "")
 
             inputs.addBoolValueInput(
                 FILTER_NON_STANDARD_ID,
@@ -264,15 +301,160 @@ def _cluster_normal(normals, n, tol=0.01):
     return len(normals) - 1
 
 
+def _clean_fusion_name(name):
+    return FUSION_INSERT_RE.sub("", str(name or "")).strip()
+
+
+def _split_name_profile(name):
+    clean_name = _clean_fusion_name(name)
+    if not clean_name:
+        return "", ""
+    match = PROFILE_FROM_NAME_RE.match(clean_name)
+    if not match:
+        return clean_name, ""
+    return match.group("base").strip(), match.group("profile").strip()
+
+
+def _get_body_material_name(body):
+    try:
+        mat = body.material
+        if mat and mat.name:
+            return mat.name
+    except:
+        pass
+    return ""
+
+
+def _extension_for_filetype(filetype):
+    return ".csv" if filetype == FILETYPE_CSV else ".xlsx"
+
+
+def _filter_for_filetype(filetype):
+    return "CSV files (*.csv)" if filetype == FILETYPE_CSV else "XLSX files (*.xlsx)"
+
+
+def _ensure_file_extension(path, extension):
+    root, ext = os.path.splitext(path)
+    if ext.lower() == extension.lower():
+        return path
+    return root + extension
+
+
+def _escape_xml_text(value):
+    text = "" if value is None else str(value)
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
+def _xlsx_col_name(col_idx):
+    letters = ""
+    n = col_idx
+    while n > 0:
+        n, rem = divmod(n - 1, 26)
+        letters = chr(65 + rem) + letters
+    return letters
+
+
+def _write_rows_csv(path, rows):
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerows(rows)
+
+
+def _write_rows_xlsx(path, rows):
+    rows_xml = []
+    for row_idx, row in enumerate(rows, start=1):
+        cells_xml = []
+        for col_idx, value in enumerate(row, start=1):
+            cell_ref = f"{_xlsx_col_name(col_idx)}{row_idx}"
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                cell_xml = f'<c r="{cell_ref}"><v>{value}</v></c>'
+            else:
+                txt = _escape_xml_text(value)
+                cell_xml = f'<c r="{cell_ref}" t="inlineStr"><is><t>{txt}</t></is></c>'
+            cells_xml.append(cell_xml)
+        rows_xml.append(f'<row r="{row_idx}">{"".join(cells_xml)}</row>')
+
+    worksheet_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        f'<sheetData>{"".join(rows_xml)}</sheetData></worksheet>'
+    )
+    content_types = """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+    <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+    <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+    <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>"""
+    rels_rels = """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+    <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+    <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>"""
+    workbook_rels = """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>"""
+    workbook_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>
+</workbook>"""
+    core_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>EA Hole Export</dc:title>
+  <dc:creator>PhilsDesignTools</dc:creator>
+</cp:coreProperties>"""
+    app_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>PhilsDesignTools</Application>
+</Properties>"""
+
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as xlsx:
+        xlsx.writestr("[Content_Types].xml", content_types)
+        xlsx.writestr("_rels/.rels", rels_rels)
+        xlsx.writestr("xl/_rels/workbook.xml.rels", workbook_rels)
+        xlsx.writestr("xl/workbook.xml", workbook_xml)
+        xlsx.writestr("xl/worksheets/sheet1.xml", worksheet_xml)
+        xlsx.writestr("docProps/core.xml", core_xml)
+        xlsx.writestr("docProps/app.xml", app_xml)
+
+
+def _write_rows(path, rows, filetype):
+    if filetype == FILETYPE_CSV:
+        _write_rows_csv(path, rows)
+        return
+    _write_rows_xlsx(path, rows)
+
+
 def _execute(args):
     cmd = args.command
     inputs = cmd.commandInputs
     sel_input = adsk.core.SelectionCommandInput.cast(inputs.itemById(SELECTION_INPUT_ID))
+    mode_in = adsk.core.DropDownCommandInput.cast(inputs.itemById(EXPORT_MODE_ID))
+    filetype_in = adsk.core.DropDownCommandInput.cast(inputs.itemById(FILETYPE_ID))
     non_standard_in = adsk.core.BoolValueCommandInput.cast(
         inputs.itemById(FILTER_NON_STANDARD_ID)
     )
     include_sub_in = adsk.core.BoolValueCommandInput.cast(
         inputs.itemById(INCLUDE_SUBCOMPONENTS_ID)
+    )
+    export_mode = (
+        mode_in.selectedItem.name
+        if mode_in and mode_in.selectedItem
+        else EXPORT_MODE_SUMMARY
+    )
+    filetype = (
+        filetype_in.selectedItem.name
+        if filetype_in and filetype_in.selectedItem
+        else FILETYPE_DEFAULT
     )
     non_standard_only = non_standard_in.value if non_standard_in else False
     include_subcomponents = include_sub_in.value if include_sub_in else True
@@ -280,61 +462,71 @@ def _execute(args):
     bodies = _iterate_selected_bodies(sel_input, include_subcomponents)
 
     ui = ctx.ui()
-    app = ctx.app()
 
     file_dlg = ui.createFileDialog()
     file_dlg.isMultiSelectEnabled = False
-    file_dlg.title = "Export EA Hole Locations to CSV"
-    file_dlg.filter = "CSV files (*.csv)"
-    file_dlg.initialFilename = "EA_HoleExport.csv"
+    file_dlg.title = "Export EA Hole Data"
+    file_dlg.filter = _filter_for_filetype(filetype)
+    default_stem = "EA_HoleExport_Summary" if export_mode == EXPORT_MODE_SUMMARY else "EA_HoleExport_Detailed"
+    file_dlg.initialFilename = default_stem + _extension_for_filetype(filetype)
 
     if file_dlg.showSave() != adsk.core.DialogResults.DialogOK:
         return
 
-    out_path = file_dlg.filename
+    out_path = _ensure_file_extension(file_dlg.filename, _extension_for_filetype(filetype))
 
     logger.log_command(
         CMD_NAME,
         {
             "selected_bodies": len(bodies),
             "output": out_path,
+            "filetype": filetype,
+            "export_mode": export_mode,
             "non_standard_only": non_standard_only,
             "include_subcomponents": include_subcomponents,
         },
     )
 
     CM_TO_MM = 10.0
-
-    header = [
-        "EAComponent",
-        "HoleIndex",
-        "Flange",
-        "DistanceFromLeft_mm",
-        "DistanceFromRight_mm",
-        "MemberLength_mm",
-        "HoleInset_mm",
-        "HoleDiameter_mm",
-    ]
-    padding = [""] * (len(header) - 1)
-    rows = []
-    how_to = [
-        "How to use this CSV",
-        "Each row describes one hole in one EA member. All units are millimeters.",
-        "EAComponent is the member name; use it to identify the EA profile in your system.",
-        "MemberLength_mm is the total member length; cut the member to this length.",
-        "Flange tells which face the hole is on (Horizontal or Vertical).",
-        "DistanceFromLeft_mm is measured along the member length from the left end to the hole center.",
-        "DistanceFromRight_mm is measured along the member length from the right end to the hole center.",
-        "Left/Right are based on the member's longest axis; left = the end with the smaller coordinate along that axis.",
-        "HoleInset_mm is the distance from the hole center to the nearest flange edge (across the flange width).",
-        "HoleDiameter_mm is the hole diameter to drill.",
-    ]
-    for line in how_to:
-        rows.append([line] + padding)
-    rows.append([""] + padding)
-    rows.append(header)
-
     total_holes = 0
+    total_members = 0
+
+    if export_mode == EXPORT_MODE_SUMMARY:
+        rows = [[
+            "PartName",
+            "Material/Profile",
+            "TotalLength_mm",
+            "Standard2Hole",
+        ]]
+    else:
+        header = [
+            "EAComponent",
+            "HoleIndex",
+            "Flange",
+            "DistanceFromLeft_mm",
+            "DistanceFromRight_mm",
+            "MemberLength_mm",
+            "HoleInset_mm",
+            "HoleDiameter_mm",
+        ]
+        padding = [""] * (len(header) - 1)
+        rows = []
+        how_to = [
+            "How to use this export",
+            "Each row describes one hole in one EA member. All units are millimeters.",
+            "EAComponent is the member name; use it to identify the EA profile in your system.",
+            "MemberLength_mm is the total member length; cut the member to this length.",
+            "Flange tells which face the hole is on (Horizontal or Vertical).",
+            "DistanceFromLeft_mm is measured along the member length from the left end to the hole center.",
+            "DistanceFromRight_mm is measured along the member length from the right end to the hole center.",
+            "Left/Right are based on the member's longest axis; left = the end with the smaller coordinate along that axis.",
+            "HoleInset_mm is the distance from the hole center to the nearest flange edge (across the flange width).",
+            "HoleDiameter_mm is the hole diameter to drill.",
+        ]
+        for line in how_to:
+            rows.append([line] + padding)
+        rows.append([""] + padding)
+        rows.append(header)
 
     for comp_name, body in bodies:
         try:
@@ -480,10 +672,34 @@ def _execute(args):
         if not valid_holes:
             continue
 
-        if non_standard_only and len(valid_holes) <= 2:
+        valid_holes.sort(key=lambda h: h["cL"])
+        member_length_mm = round(total_length_cm * CM_TO_MM)
+        is_standard_2_hole = len(valid_holes) == 2
+
+        if export_mode == EXPORT_MODE_SUMMARY:
+            if non_standard_only and is_standard_2_hole:
+                continue
+
+            part_name, profile = _split_name_profile(comp_name)
+            if not part_name:
+                part_name = _clean_fusion_name(comp_name)
+            if not profile:
+                _, profile = _split_name_profile(body.name)
+            if not profile:
+                profile = _get_body_material_name(body)
+
+            rows.append([
+                part_name,
+                profile,
+                member_length_mm,
+                "Yes" if is_standard_2_hole else "No",
+            ])
+            total_members += 1
+            total_holes += len(valid_holes)
             continue
 
-        valid_holes.sort(key=lambda h: h["cL"])
+        if non_standard_only and len(valid_holes) <= 2:
+            continue
 
         hole_index = 0
         for h in valid_holes:
@@ -501,7 +717,6 @@ def _execute(args):
 
             distance_from_left_mm = round(cL_cm * CM_TO_MM)
             distance_from_right_mm = round((total_length_cm - cL_cm) * CM_TO_MM)
-            member_length_mm = round(total_length_cm * CM_TO_MM)
 
             r_h = adsk.core.Vector3D.create(
                 center.x - p0.x,
@@ -530,23 +745,33 @@ def _execute(args):
                 diameter_mm,
             ])
 
-    with open(out_path, "w", newline="") as f:
-        csv.writer(f).writerows(rows)
+    _write_rows(out_path, rows, filetype)
 
     logger.log_command(
         CMD_NAME,
         {
             "result": "export_complete",
             "total_holes": total_holes,
+            "total_members": total_members,
+            "filetype": filetype,
+            "export_mode": export_mode,
             "output": out_path,
         },
     )
 
-    ui.messageBox(
-        "EA hole CSV export complete.\n"
-        f"File: {out_path}\n"
-        f"Total holes found: {total_holes}"
-    )
+    if export_mode == EXPORT_MODE_SUMMARY:
+        ui.messageBox(
+            "EA hole summary export complete.\n"
+            f"File: {out_path}\n"
+            f"Members exported: {total_members}\n"
+            f"Total holes found: {total_holes}"
+        )
+    else:
+        ui.messageBox(
+            "EA hole detailed export complete.\n"
+            f"File: {out_path}\n"
+            f"Total holes found: {total_holes}"
+        )
 
 
 def register(ui, panel):
