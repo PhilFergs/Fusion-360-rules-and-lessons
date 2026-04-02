@@ -313,3 +313,37 @@ Date: 2026-04-01
   - `C:\Users\phil9\AppData\Roaming\Autodesk\ApplicationPlugins\PhilsBom.bundle\Contents\_PhilsBom.py.bak-20260401-083908`
   - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\MyScripts\Autorun\PhilsBom.bundle\Contents\_PhilsBom.py.bak-20260401-083908`
 
+# Stub Arm Pair Angled Command
+
+Date: 2026-04-01
+
+## Plan
+- [x] Back up files before edits
+- [x] Add new single-pair stub arm command with world-ground-referenced top angle
+- [x] Add optional top/bottom reference entity selectors (point/vertex/edge/line)
+- [x] Register command in add-in startup/shutdown + toolbar
+- [x] Add command icon resources
+- [x] Run syntax checks
+- [x] Mirror updated files to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/PhilsDesignTools.py.bak-20260401-140825`
+  - `tasks/todo.md.bak-20260401-140825`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\PhilsDesignTools.py.bak-20260401-141203`
+- New command module:
+  - `Addin/PhilsDesignTools/smg_stub_arm_pair.py`
+- New toolbar command id:
+  - `PhilsDesignTools_StubArmPair`
+- New resources folder:
+  - `Addin/PhilsDesignTools/resources/PhilsDesignTools_StubArmPair`
+- Command capabilities:
+  - Single-pair generation from one selected column and wall selection.
+  - Top-line angle value referenced to world ground (XY plane).
+  - Optional top reference selector accepting point/vertex/edge/line anchors.
+  - Bottom line column attachment is now driven by a single distance from the top line attachment (no separate bottom anchor/offset mode).
+  - Existing wall inset / clearance handling and bracket tagging reused from stub-arm core logic.
+- Syntax checks passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_stub_arm_pair.py`
+  - `py -3 -m py_compile Addin/PhilsDesignTools/PhilsDesignTools.py`
+
