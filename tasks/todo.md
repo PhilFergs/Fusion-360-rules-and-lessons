@@ -347,3 +347,81 @@ Date: 2026-04-01
   - `py -3 -m py_compile Addin/PhilsDesignTools/smg_stub_arm_pair.py`
   - `py -3 -m py_compile Addin/PhilsDesignTools/PhilsDesignTools.py`
 
+# Normalize Component Structure Command
+
+Date: 2026-04-17
+
+## Plan
+- [x] Back up files before edits
+- [x] Add a new command to normalize mixed/multi-body component structure
+- [x] Treat linked child occurrences as child components for conversion checks
+- [x] Add a body naming pass to match single direct body names to parent component names
+- [x] Register the command in PhilsDesignTools panel startup/shutdown lists
+- [x] Add command icon resources
+- [x] Run syntax checks
+- [x] Mirror updated files to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/PhilsDesignTools.py.bak-20260417-111441`
+  - `tasks/todo.md.bak-20260417-111441`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\PhilsDesignTools.py.bak-20260417-111733`
+- New command module:
+  - `Addin/PhilsDesignTools/smg_normalize_component_structure.py`
+- New toolbar command id:
+  - `PhilsDesignTools_NormalizeComponentStructure`
+- New resources folder:
+  - `Addin/PhilsDesignTools/resources/PhilsDesignTools_NormalizeComponentStructure`
+- Command behavior:
+  - Scans all components in the active design.
+  - Flags a component for conversion when it has direct bodies and either direct child occurrences (including linked occurrences) or multiple direct bodies.
+  - Converts each flagged direct body using `BRepBody.createComponent()` so bodies become child components.
+  - Runs a second pass to rename every single direct body to match its parent component name.
+  - Skips referenced component definitions for direct edits and reports conversion/rename errors in the summary.
+- Syntax checks passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_normalize_component_structure.py`
+  - `py -3 -m py_compile Addin/PhilsDesignTools/PhilsDesignTools.py`
+  - `py -3 -m py_compile` on mirrored active files.
+
+# Stub Arms DXF Export Command
+
+Date: 2026-04-17
+
+## Plan
+- [x] Back up files before edits
+- [x] Confirm current stub-arm sketch/export behavior and DXF gap
+- [x] Add a new command to export selected stub arm lines to DXF geometry
+- [x] Register the command in PhilsDesignTools panel startup/shutdown lists
+- [x] Add command icon resources
+- [x] Update README/CHANGELOG/DEVLOG notes
+- [x] Run syntax checks
+- [x] Mirror updated files to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/PhilsDesignTools.py.bak-20260417-144215`
+  - `Addin/README.md.bak-20260417-144216`
+  - `Addin/CHANGELOG.md.bak-20260417-144216`
+  - `Addin/DEVLOG.md.bak-20260417-144216`
+  - `tasks/todo.md.bak-20260417-144216`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\PhilsDesignTools.py.bak-20260417-144455`
+- DXF export gap confirmed:
+  - Stub arm geometry already exists as sketch lines, but the add-in only had quantity/data export and no direct DXF line export command.
+  - Fusion can save a sketch as DXF manually, but that is per-sketch and does not provide a one-click export for selected stub arm lines across the model.
+- New command module:
+  - `Addin/PhilsDesignTools/smg_stub_arms_export_dxf.py`
+- New toolbar command id:
+  - `PhilsDesignTools_StubArms_Export_DXF`
+- New resources folder:
+  - `Addin/PhilsDesignTools/resources/PhilsDesignTools_StubArms_Export_DXF`
+- Command behavior:
+  - Reuses the existing stub-arm selection/filter logic so only real stub arm lines are exported.
+  - Accepts selected stub arm lines, sketches, occurrences, or components.
+  - Writes a DXF containing `LINE` entities in model/world coordinates with mm units.
+  - Groups exported lines onto generated DXF layers using stub arm metadata when available.
+- Syntax checks passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_stub_arms_export_dxf.py`
+  - `py -3 -m py_compile Addin/PhilsDesignTools/PhilsDesignTools.py`
+  - `py -3 -m py_compile` on mirrored active files.
+ - Rhino compatibility hardening:
+  - Updated DXF writer to emit a Rhino-friendlier ASCII R12 (`AC1009`) DXF instead of a minimal `AC1015` file structure.

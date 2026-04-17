@@ -6,6 +6,11 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Add a brief entry to this DEVLOG for each change set.
 - Update CHANGELOG.md under Unreleased for user-facing changes.
 
+## 2026-04-17
+- Added a new **Normalize Component Structure** command to convert mixed/multi-body components into cleaner child-component structure and rename single direct bodies to match their parent component names.
+- Added a new **Stub Arms Export DXF** command that exports selected stub arm sketch lines as DXF `LINE` entities in mm using world/model coordinates.
+- Reused the existing stub-arm selection/filter logic so DXF export stays aligned with the CSV exporter and ignores unrelated sketch lines.
+
 ## 2026-03-30
 - Reworked the former IGES export command into **Multi Part File Export** with a file type dropdown in the command UI.
 - Added multi-format export support for STEP/STL/IGES/SAT/SMT/F3D, with dynamic availability checks based on the running Fusion build.

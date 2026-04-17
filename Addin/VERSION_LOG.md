@@ -3,6 +3,10 @@
 Each upload should add a dated entry here and use the deploy script to back up
 the previous add-in folder before overwriting files in the Fusion add-ins path.
 
+## 2026-04-17 16:45
+- Branch: feature/in-development
+- Summary: Added Normalize Component Structure, added Stub Arms Export DXF, hardened DXF output for Rhino compatibility (R12/AC1009), and bumped PhilsDesignTools version to 1.0.7.
+
 ## 2026-03-24 13:20
 - Branch: feature/in-development
 - Summary: Stub Arms Export upgraded with filetype selection (XLSX default), screws-per-stub-arm setting (default 2), mixed-selection filtering, duplicate line dedupe, and bumped PhilsDesignTools version to 1.0.5.

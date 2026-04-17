@@ -33,6 +33,8 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Remove Length From Names: one-click command to strip only the `-####mm-` segment from existing component and occurrence names.
 - Bulk Replace Components: replace multiple selected external target occurrences using one externally selected replacement design (Fusion cloud file picker) in a single run.
 - Bulk Replace Components: removed restrictive cloud picker file filter so Fusion design items appear correctly in project folders.
+- Stub Arms Export DXF: export selected stub arm sketch lines to a DXF file containing only line geometry in model coordinates.
+- Normalize Component Structure: normalize mixed and multi-body components by moving direct bodies into child components and aligning single-body names to the parent component.
 ### Changed
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.

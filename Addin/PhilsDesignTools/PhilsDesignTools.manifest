@@ -6,7 +6,7 @@
   "description": {
     "en-US": "Generate EA, SHS and RHS members from sketch lines"
   },
-  "version": "1.0.6",
+  "version": "1.0.7",
   "runOnStartup": true,
   "supportedOS": "windows|mac",
   "engine": "CPython",

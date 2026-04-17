@@ -17,8 +17,8 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - PhilsDesignTools panel: EA From Lines, SHS From Lines, RHS From Lines, Rotate Steel Member,
   Batch Rename, Split Body (Keep Side), Split Body Delete, EA Hole Export CSV,
   Multi Part File Export, New Component Set, Wireframe From Body, Hole Cut From Face,
-  Stub Arms To Wall, Stub Arms Export, Stub Arms Set Bracket, Remove Length From Names,
-  Bulk Replace Components
+  Stub Arms To Wall, Stub Arms Export, Stub Arms Export DXF, Stub Arms Set Bracket,
+  Remove Length From Names, Bulk Replace Components, Normalize Component Structure
 
 ## Tool instructions
 - EA From Lines: Select sketch lines, set flange/thickness/extra/holes/angle, then OK.
@@ -37,7 +37,9 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - Hole Cut From Face: Select a cylindrical hole face and a target body, then OK to cut.
 - Stub Arms To Wall: Optimized stub arms tool. Select RHS column bodies and wall faces/bodies, set connection count and offsets, then OK.
 - Stub Arms Export: Select stub arm lines or sketches, choose export options and filetype, then save.
+- Stub Arms Export DXF: Select stub arm lines, sketches, or components, then save a DXF containing only the stub arm line geometry.
 - Stub Arms Set Bracket: Select stub arm lines, choose Square/Swivel, then OK to reclassify.
+- Normalize Component Structure: One-click cleanup that moves mixed/multi-body direct bodies into child components and renames single direct bodies to match their parent component.
 
 ## Development notes
 - Update `Addin/CHANGELOG.md` (user-facing) and `Addin/DEVLOG.md` (working notes) with each change set.

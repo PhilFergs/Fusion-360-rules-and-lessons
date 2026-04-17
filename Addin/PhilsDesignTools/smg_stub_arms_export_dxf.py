@@ -1,0 +1,313 @@
+import adsk.core
+import adsk.fusion
+import os
+import re
+import traceback
+
+import smg_context as ctx
+import smg_logger as logger
+import smg_stub_arms_export as stub_export
+
+CMD_ID = "PhilsDesignTools_StubArms_Export_DXF"
+CMD_NAME = "Stub Arms Export DXF"
+CMD_TOOLTIP = "Export selected stub arm sketch lines as DXF LINE geometry."
+RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
+DXF_VERSION = "AC1009"
+
+SELECTION_INPUT_ID = "stub_arms_export_dxf_selection"
+INCLUDE_SUBCOMPONENTS_ID = "stub_arms_export_dxf_include_subcomponents"
+VISIBLE_ONLY_ID = "stub_arms_export_dxf_visible_only"
+
+
+class StubArmsExportDxfCreatedHandler(adsk.core.CommandCreatedEventHandler):
+    def notify(self, args):
+        try:
+            cmd = args.command
+            inputs = cmd.commandInputs
+
+            if inputs.itemById(SELECTION_INPUT_ID):
+                return
+
+            inputs.addTextBoxCommandInput(
+                "stub_arms_export_dxf_info",
+                "",
+                "Exports selected stub arm sketch lines as 3D DXF LINE entities in mm.",
+                2,
+                True,
+            )
+
+            sel = inputs.addSelectionInput(
+                SELECTION_INPUT_ID,
+                "Selection",
+                "Select stub arm sketch lines, sketches, or components",
+            )
+            sel.addSelectionFilter("SketchLines")
+            try:
+                sel.addSelectionFilter("Sketches")
+            except:
+                pass
+            sel.addSelectionFilter("Occurrences")
+            try:
+                sel.addSelectionFilter("Components")
+            except:
+                logger.log("Stub Arms Export DXF: Selection filter 'Components' not supported; ignoring.")
+            sel.setSelectionLimits(1, 0)
+
+            inputs.addBoolValueInput(
+                INCLUDE_SUBCOMPONENTS_ID,
+                "Include subcomponents",
+                True,
+                "",
+                True,
+            )
+            inputs.addBoolValueInput(
+                VISIBLE_ONLY_ID,
+                "Visible lines only",
+                True,
+                "",
+                True,
+            )
+
+            on_exec = StubArmsExportDxfExecuteHandler()
+            cmd.execute.add(on_exec)
+            ctx.add_handler(on_exec)
+        except:
+            logger.log(f"{CMD_NAME} UI failed:\n" + traceback.format_exc())
+            ctx.ui().messageBox(f"{CMD_NAME} UI failed:\n" + traceback.format_exc())
+
+
+class StubArmsExportDxfExecuteHandler(adsk.core.CommandEventHandler):
+    def notify(self, args):
+        try:
+            _execute(args)
+        except:
+            logger.log(f"{CMD_NAME} failed:\n" + traceback.format_exc())
+            ctx.ui().messageBox(f"{CMD_NAME} failed:\n" + traceback.format_exc())
+
+
+def _normalise_output_path(path):
+    if not path:
+        return path
+    root, ext = os.path.splitext(path)
+    if ext.lower() == ".dxf":
+        return path
+    return root + ".dxf"
+
+
+def _choose_output_path(ui):
+    dlg = ui.createFileDialog()
+    dlg.isMultiSelectEnabled = False
+    dlg.title = "Export Stub Arm Lines to DXF"
+    dlg.filter = "DXF files (*.dxf)"
+    dlg.initialFilename = "StubArms_Lines.dxf"
+    if dlg.showSave() != adsk.core.DialogResults.DialogOK:
+        return None
+    return _normalise_output_path(dlg.filename)
+
+
+def _safe_layer_name(text):
+    value = "stub_arms" if not text else str(text)
+    value = re.sub(r"[^A-Za-z0-9_-]+", "_", value.strip())
+    value = re.sub(r"_+", "_", value).strip("_")
+    if not value:
+        value = "stub_arms"
+    return value[:80]
+
+
+def _layer_name_for_line(line):
+    member = stub_export._get_line_member_attr(line) or "misc"
+    bracket = stub_export._get_bracket_type(line) or "unknown"
+    label = stub_export._column_label_for_line(line) or "unknown"
+    return _safe_layer_name(f"stub_{member}_{bracket}_{label}")
+
+
+def _line_points_mm(line, units_manager):
+    try:
+        sp = line.startSketchPoint.worldGeometry
+        ep = line.endSketchPoint.worldGeometry
+    except:
+        return None, None
+    if not sp or not ep or not units_manager:
+        return None, None
+    return _point_mm(sp, units_manager), _point_mm(ep, units_manager)
+
+
+def _point_mm(point, units_manager):
+    return (
+        units_manager.convert(point.x, units_manager.internalUnits, "mm"),
+        units_manager.convert(point.y, units_manager.internalUnits, "mm"),
+        units_manager.convert(point.z, units_manager.internalUnits, "mm"),
+    )
+
+
+def _emit_pair(out, code, value):
+    out.append(str(code))
+    out.append(str(value))
+
+
+def _format_num(value):
+    return f"{float(value):.6f}"
+
+
+def _write_dxf(path, entities):
+    layers = sorted({entity["layer"] for entity in entities})
+    out = []
+
+    # Write a Rhino-friendly ASCII R12 DXF because the file only contains
+    # primitive LINE entities and simple layer definitions.
+    _emit_pair(out, 999, "Generated by PhilsDesignTools")
+    _emit_pair(out, 999, "Units: mm")
+    _emit_pair(out, 0, "SECTION")
+    _emit_pair(out, 2, "HEADER")
+    _emit_pair(out, 9, "$ACADVER")
+    _emit_pair(out, 1, DXF_VERSION)
+    _emit_pair(out, 0, "ENDSEC")
+
+    _emit_pair(out, 0, "SECTION")
+    _emit_pair(out, 2, "TABLES")
+    _emit_pair(out, 0, "TABLE")
+    _emit_pair(out, 2, "LAYER")
+    _emit_pair(out, 70, len(layers) + 1)
+
+    _emit_pair(out, 0, "LAYER")
+    _emit_pair(out, 2, "0")
+    _emit_pair(out, 70, 0)
+    _emit_pair(out, 62, 7)
+    _emit_pair(out, 6, "CONTINUOUS")
+
+    for layer in layers:
+        _emit_pair(out, 0, "LAYER")
+        _emit_pair(out, 2, layer)
+        _emit_pair(out, 70, 0)
+        _emit_pair(out, 62, 7)
+        _emit_pair(out, 6, "CONTINUOUS")
+
+    _emit_pair(out, 0, "ENDTAB")
+    _emit_pair(out, 0, "ENDSEC")
+
+    _emit_pair(out, 0, "SECTION")
+    _emit_pair(out, 2, "ENTITIES")
+    for entity in entities:
+        start = entity["start"]
+        end = entity["end"]
+        _emit_pair(out, 0, "LINE")
+        _emit_pair(out, 8, entity["layer"])
+        _emit_pair(out, 10, _format_num(start[0]))
+        _emit_pair(out, 20, _format_num(start[1]))
+        _emit_pair(out, 30, _format_num(start[2]))
+        _emit_pair(out, 11, _format_num(end[0]))
+        _emit_pair(out, 21, _format_num(end[1]))
+        _emit_pair(out, 31, _format_num(end[2]))
+
+    _emit_pair(out, 0, "ENDSEC")
+    _emit_pair(out, 0, "EOF")
+
+    with open(path, "w", encoding="ascii", newline="\n") as handle:
+        handle.write("\n".join(out))
+        handle.write("\n")
+
+
+def _execute(args):
+    app = ctx.app()
+    ui = ctx.ui()
+    design = adsk.fusion.Design.cast(app.activeProduct)
+    if not design:
+        ui.messageBox("No active Fusion design.")
+        return
+
+    cmd = args.command
+    inputs = cmd.commandInputs
+    sel_input = adsk.core.SelectionCommandInput.cast(inputs.itemById(SELECTION_INPUT_ID))
+    include_subcomponents_in = adsk.core.BoolValueCommandInput.cast(
+        inputs.itemById(INCLUDE_SUBCOMPONENTS_ID)
+    )
+    visible_only_in = adsk.core.BoolValueCommandInput.cast(inputs.itemById(VISIBLE_ONLY_ID))
+
+    include_subcomponents = (
+        include_subcomponents_in.value if include_subcomponents_in else True
+    )
+    visible_only = visible_only_in.value if visible_only_in else True
+
+    lines = stub_export._iterate_selected_lines(
+        sel_input,
+        include_subcomponents,
+        visible_only,
+    )
+    if not lines:
+        ui.messageBox("No valid stub arm lines found.")
+        return
+
+    out_path = _choose_output_path(ui)
+    if not out_path:
+        return
+
+    units_manager = design.unitsManager
+    entities = []
+    skipped = 0
+
+    for line in lines:
+        start, end = _line_points_mm(line, units_manager)
+        if not start or not end:
+            skipped += 1
+            continue
+        length = (
+            abs(start[0] - end[0]) +
+            abs(start[1] - end[1]) +
+            abs(start[2] - end[2])
+        )
+        if length <= 1e-6:
+            skipped += 1
+            continue
+        entities.append(
+            {
+                "layer": _layer_name_for_line(line),
+                "start": start,
+                "end": end,
+            }
+        )
+
+    if not entities:
+        ui.messageBox("No exportable stub arm lines were found.")
+        return
+
+    _write_dxf(out_path, entities)
+
+    logger.log_command(
+        CMD_NAME,
+        {
+            "lines_exported": len(entities),
+            "lines_skipped": skipped,
+            "layers": len({entity["layer"] for entity in entities}),
+            "include_subcomponents": include_subcomponents,
+            "visible_only": visible_only,
+            "dxf_version": DXF_VERSION,
+            "path": out_path,
+        },
+    )
+
+    ui.messageBox(
+        f"{CMD_NAME} complete.\n"
+        f"Lines exported: {len(entities)}\n"
+        f"Lines skipped: {skipped}\n"
+        f"DXF saved to:\n{out_path}"
+    )
+
+
+def register(ui, panel):
+    cmd_def = ui.commandDefinitions.itemById(CMD_ID)
+    if not cmd_def:
+        cmd_def = ui.commandDefinitions.addButtonDefinition(
+            CMD_ID,
+            CMD_NAME,
+            CMD_TOOLTIP,
+            RESOURCE_FOLDER,
+        )
+
+    created_handler = StubArmsExportDxfCreatedHandler()
+    cmd_def.commandCreated.add(created_handler)
+    ctx.add_handler(created_handler)
+
+    if panel and not panel.controls.itemById(CMD_ID):
+        ctrl = panel.controls.addCommand(cmd_def)
+        ctrl.isPromoted = True
+        ctrl.isPromotedByDefault = False
