@@ -1,6 +1,7 @@
 import adsk.core
 import adsk.fusion
 import os
+import re
 import traceback
 
 import smg_context as ctx
@@ -58,6 +59,20 @@ def _body_name(body):
         return body.name or "Body"
     except:
         return "Body"
+
+
+def _is_generic_body_name(name):
+    if not name:
+        return True
+    return bool(re.fullmatch(r"body(?:\s*\d+)?", str(name).strip(), re.IGNORECASE))
+
+
+def _preferred_child_component_name(parent_name, source_body_name, body_index, body_count):
+    if source_body_name and not _is_generic_body_name(source_body_name):
+        return source_body_name
+    if body_count <= 1:
+        return f"{parent_name} Body"
+    return f"{parent_name} Body {body_index + 1}"
 
 
 def _is_referenced_component(comp):
@@ -157,9 +172,15 @@ def _execute():
         stats["bodies_detected_for_conversion"] += body_count
         converted_here = 0
 
-        for body in bodies:
+        for body_index, body in enumerate(bodies):
             source_body_name = _body_name(body)
             parent_name = _component_name(comp)
+            target_component_name = _preferred_child_component_name(
+                parent_name,
+                source_body_name,
+                body_index,
+                body_count,
+            )
 
             try:
                 moved_body = body.createComponent()
@@ -169,7 +190,7 @@ def _execute():
                 new_component = moved_body.parentComponent
                 if new_component:
                     try:
-                        new_component.name = source_body_name
+                        new_component.name = target_component_name
                     except:
                         # Non-fatal; naming pass will still align body names.
                         pass

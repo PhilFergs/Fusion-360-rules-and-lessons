@@ -11,6 +11,18 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Added a new **Stub Arms Export DXF** command that exports selected stub arm sketch lines as DXF `LINE` entities in mm using world/model coordinates.
 - Reused the existing stub-arm selection/filter logic so DXF export stays aligned with the CSV exporter and ignores unrelated sketch lines.
 
+## 2026-04-20
+- Normalize Component Structure: fixed converted child component naming so generic source body names like `Body1`/`Body2` do not become the new component names; parent-based fallback names are now used during conversion.
+- Added a new **Set Component Descriptions** command that writes Fusion component descriptions from recognised steel profile names.
+- First-pass description mapping supports SHS/RHS/CHS (`AS/NZS 1163 C350L0`), EA/flat bar (`AS/NZS 3679.1 Grade 300`), and plate (`AS/NZS 3678 Grade 250`), based on existing component/body names.
+- Set Component Descriptions: added a geometry fallback path for leaf members so renamed parts like `C1-100x3` can still resolve from the actual body profile when the name no longer carries `EA`/`RHS`/`SHS`.
+- Set Component Descriptions: now also creates/reuses design-local materials with simplified names like `Steel - SHS` and assigns them to the single target body so the Properties panel Material Name follows the recognised profile family.
+- Set Component Descriptions: removed the remaining plate-by-name shortcuts so plate now resolves from the actual body profile instead of `PL` / `PLATE` text.
+- Set Component Descriptions: removed the remaining name-driven section inference so all supported profile families are now recognised from body geometry rather than naming patterns.
+- Set Component Descriptions: replaced the hollow-section size inference path with end-face loop measurement after side-face plane-origin sizing produced bad thickness values on some SHS/RHS members (for example `100 x 100 x 8` being read too thin).
+- Set Component Descriptions: fixed a geometry-order bug where SHS/RHS corner fillet cylinders could be detected as CHS before the prismatic end-face profile was checked.
+- Set Component Descriptions: changed solid-part stock classification so flat bar now requires a simple rectangular broad face; irregular cut tabs/brackets are treated as plate stock instead.
+
 ## 2026-03-30
 - Reworked the former IGES export command into **Multi Part File Export** with a file type dropdown in the command UI.
 - Added multi-format export support for STEP/STL/IGES/SAT/SMT/F3D, with dynamic availability checks based on the running Fusion build.

@@ -35,7 +35,16 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Bulk Replace Components: removed restrictive cloud picker file filter so Fusion design items appear correctly in project folders.
 - Stub Arms Export DXF: export selected stub arm sketch lines to a DXF file containing only line geometry in model coordinates.
 - Normalize Component Structure: normalize mixed and multi-body components by moving direct bodies into child components and aligning single-body names to the parent component.
+- Set Component Descriptions: populate Fusion's Description field from recognised Australian steel profile name patterns for SHS, RHS, CHS, EA, flat bar, and plate members.
 ### Changed
+- Set Component Descriptions: now falls back to body-geometry recognition for common generated leaf members (for example renamed EA/SHS/RHS parts whose names no longer include the section family token).
+- Set Component Descriptions: now also assigns simplified design-local material names such as `Steel - SHS`, `Steel - RHS`, and `Steel - EA` to recognised single-body members.
+- Set Component Descriptions: plate descriptions are no longer inferred from `PL` / `PLATE` naming text and now come from the actual model geometry only.
+- Set Component Descriptions: section recognition is now geometry-only for all supported profiles, so SHS/RHS/CHS/EA/flat bar/plate are inferred from the body shape instead of component names.
+- Set Component Descriptions: hollow-section sizing now uses end-face loop measurement instead of side-face plane origins, improving SHS/RHS wall-thickness reliability on sections like `100 x 100 x 8`.
+- Set Component Descriptions: geometry classification now prioritizes end-face prismatic profiles before CHS fallback, preventing SHS/RHS corner fillet cylinders from being misread as round tube.
+- Set Component Descriptions: flat bar is now reserved for parts whose broad stock face is a simple rectangle; smaller cut tabs and irregular sheet parts now classify as plate instead of flat bar.
+- Normalize Component Structure: converted child components now avoid generic source names like `Body1`/`Body2` by using parent-based fallback names during conversion.
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.
 - Split Body delete now uses a follow-up command and improved implicit split detection.

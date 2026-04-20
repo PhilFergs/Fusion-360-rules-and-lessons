@@ -423,5 +423,334 @@ Date: 2026-04-17
   - `py -3 -m py_compile Addin/PhilsDesignTools/smg_stub_arms_export_dxf.py`
   - `py -3 -m py_compile Addin/PhilsDesignTools/PhilsDesignTools.py`
   - `py -3 -m py_compile` on mirrored active files.
- - Rhino compatibility hardening:
+- Rhino compatibility hardening:
   - Updated DXF writer to emit a Rhino-friendlier ASCII R12 (`AC1009`) DXF instead of a minimal `AC1015` file structure.
+
+# Normalize Component Naming Follow-up
+
+Date: 2026-04-20
+
+## Plan
+- [x] Back up files before edits
+- [x] Confirm why converted normalize child components can end up named `Body1`/`Body2`
+- [x] Update normalize naming so converted components avoid generic body names
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/smg_normalize_component_structure.py.bak-20260420-092318`
+  - `tasks/todo.md.bak-20260420-092318`
+- Naming fix:
+  - Generic direct body names (`Body`, `Body1`, `Body2`, etc.) no longer become the new child component names during conversion.
+  - Converted child components now use a parent-based fallback name such as `<Parent> Body` or `<Parent> Body 2`.
+- Syntax checks passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_normalize_component_structure.py`
+  - `py -3 -m py_compile` on the mirrored active add-in file.
+
+# Set Component Descriptions Command
+
+Date: 2026-04-20
+
+## Plan
+- [x] Back up files before edits
+- [x] Inspect current naming patterns and decide the first-pass description format rules
+- [x] Add a new command to write component descriptions from recognised profile names
+- [x] Register the command in PhilsDesignTools panel startup/shutdown lists
+- [x] Add command icon resources
+- [x] Update README/CHANGELOG/DEVLOG notes
+- [x] Run syntax checks
+- [x] Mirror updated files to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/PhilsDesignTools.py.bak-20260420-101231`
+  - `Addin/README.md.bak-20260420-101231`
+  - `Addin/CHANGELOG.md.bak-20260420-101231`
+  - `Addin/DEVLOG.md.bak-20260420-101231`
+  - `tasks/todo.md.bak-20260420-101231`
+- Mirrored active add-in backups:
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\PhilsDesignTools.py.bak-20260420-101735`
+- New command module:
+  - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+- New toolbar command id:
+  - `PhilsDesignTools_SetComponentDescriptions`
+- New resources folder:
+  - `Addin/PhilsDesignTools/resources/PhilsDesignTools_SetComponentDescriptions`
+- First-pass supported families:
+  - `SHS`, `RHS`, `CHS`, `EA`, `FLAT BAR`, `PLATE`
+- Description output rules:
+  - Hollow sections -> `AS/NZS 1163 C350L0`
+  - Merchant bar / angles / flat bar -> `AS/NZS 3679.1 Grade 300`
+  - Plate -> `AS/NZS 3678 Grade 250`
+- Parser spot checks passed:
+  - `SHS1-100x100x3` -> `SHS 100 x 100 x 3 AS/NZS 1163 C350L0`
+  - `RHS1-100x50x3` -> `RHS 100 x 50 x 3 AS/NZS 1163 C350L0`
+  - `EA1-50x50x3` -> `EA 50 x 50 x 3 AS/NZS 3679.1 Grade 300`
+  - `BRB1 - 100x3 SHS` -> `SHS 100 x 100 x 3 AS/NZS 1163 C350L0`
+  - `BR1 - 50x3 EA` -> `EA 50 x 50 x 3 AS/NZS 3679.1 Grade 300`
+  - `FB1-65x10` -> `FLAT BAR 65 x 10 AS/NZS 3679.1 Grade 300`
+  - `PL-10` -> `PLATE 10 AS/NZS 3678 Grade 250`
+- Syntax checks passed:
+  - `py_compile` on repo files:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+    - `Addin/PhilsDesignTools/PhilsDesignTools.py`
+  - `py_compile` on mirrored active add-in files:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\PhilsDesignTools.py`
+- Mirror verification:
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+  - Repo and active installed copies of `PhilsDesignTools.py` match by SHA-256.
+
+# Set Component Descriptions Leaf-Only Filter
+
+Date: 2026-04-20
+
+## Plan
+- [x] Back up files before edits
+- [x] Restrict description writes to leaf fabrication components only
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/smg_set_component_descriptions.py.bak-20260420-102637`
+  - `tasks/todo.md.bak-20260420-102637`
+- Leaf-only rule:
+  - The command now only attempts to write descriptions when a component has exactly one direct body and zero child occurrences.
+  - Assembly components, empty components, and multi-body container components are skipped before profile parsing.
+- Command summary update:
+  - Added `Non-leaf skipped` count so skipped assembly components are visible in the result dialog.
+- Spot check passed:
+  - `(1 body, 0 children)` -> included
+  - `(1 body, 2 children)` -> skipped
+  - `(2 bodies, 0 children)` -> skipped
+  - `(0 bodies, 0 children)` -> skipped
+- Syntax check passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-102835`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+  - `py_compile` passed on the mirrored active add-in file.
+
+# Set Component Descriptions Geometry Fallback
+
+Date: 2026-04-20
+
+## Plan
+- [x] Back up files before edits
+- [x] Add body-geometry fallback when profile family cannot be resolved from names
+- [x] Update command notes/docs for the new fallback behavior
+- [x] Run syntax checks
+- [x] Mirror updated files to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/smg_set_component_descriptions.py.bak-20260420-105428`
+  - `tasks/todo.md.bak-20260420-105428`
+- Geometry fallback behavior:
+  - The command still prefers recognised profile names first.
+  - If no supported family token is present, it now inspects the actual single-body leaf component geometry.
+  - Hollow rectangular sections are inferred from side-face plane offsets and end-face loops.
+  - Equal angles are inferred from stepped side-face plane offsets.
+  - Solid rectangular sections fall back to flat-bar vs plate heuristics.
+- Pure helper spot checks passed:
+  - Hollow levels `[-50,-47,47,50] / [-50,-47,47,50]` -> `SHS 100 x 100 x 3 AS/NZS 1163 C350L0`
+  - Hollow levels `[-50,-47,47,50] / [-25,-22,22,25]` -> `RHS 100 x 50 x 3 AS/NZS 1163 C350L0`
+  - Angle levels `[0,3,100] / [0,3,100]` -> `EA 100 x 100 x 3 AS/NZS 3679.1 Grade 300`
+  - Solid rectangle `100 x 3`, long length -> `FLAT BAR 100 x 3 AS/NZS 3679.1 Grade 300`
+  - Solid rectangle `100 x 10`, short length -> `PLATE 10 AS/NZS 3678 Grade 250`
+- Syntax check passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-105644`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+
+# Set Component Descriptions Material Name Sync
+
+Date: 2026-04-20
+
+## Plan
+- [x] Update the command to assign simplified material names from recognised profile families
+- [x] Update docs/notes for the material-name behavior
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Material mapping added:
+  - `SHS ...` -> `Steel - SHS`
+  - `RHS ...` -> `Steel - RHS`
+  - `CHS ...` -> `Steel - CHS`
+  - `EA ...` -> `Steel - EA`
+  - `FLAT BAR ...` -> `Steel - Flat Bar`
+  - `PLATE ...` -> `Steel - Plate`
+- Material assignment behavior:
+  - Reuses an existing design material with the target name when present.
+  - Otherwise copies the current/body steel material into the design with the simplified name and assigns it to the leaf body.
+- Helper spot checks passed:
+  - `SHS 100 x 100 x 3 AS/NZS 1163 C350L0` -> `Steel - SHS`
+  - `RHS 100 x 50 x 3 AS/NZS 1163 C350L0` -> `Steel - RHS`
+  - `CHS 48.3 x 3.2 AS/NZS 1163 C350L0` -> `Steel - CHS`
+  - `EA 100 x 100 x 3 AS/NZS 3679.1 Grade 300` -> `Steel - EA`
+  - `FLAT BAR 65 x 10 AS/NZS 3679.1 Grade 300` -> `Steel - Flat Bar`
+  - `PLATE 10 AS/NZS 3678 Grade 250` -> `Steel - Plate`
+- Syntax checks passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-113852`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+
+# Set Component Descriptions Plate Geometry Only
+
+Date: 2026-04-20
+
+## Plan
+- [x] Back up files before edits
+- [x] Remove remaining plate naming shortcuts from description inference
+- [x] Update notes/docs for geometry-only plate resolution
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/smg_set_component_descriptions.py.bak-20260420-114929`
+  - `tasks/todo.md.bak-20260420-114929`
+- Plate inference changes:
+  - Removed `PLATE` / `PL` text parsing from `_description_from_text`.
+  - Removed the `PLATE` name hint shortcut from solid-rectangle geometry inference.
+  - Plate descriptions now come from the actual body profile only.
+- Spot checks passed:
+  - `PL-10` -> `None` from name parsing
+  - `10 Plate` -> `None` from name parsing
+  - Solid rectangle `100 x 10`, short length -> `PLATE 10 AS/NZS 3678 Grade 250`
+- Syntax checks passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-115034`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+
+# Set Component Descriptions Geometry Only
+
+Date: 2026-04-20
+
+## Plan
+- [x] Back up files before edits
+- [x] Remove the remaining name-driven profile inference for all supported families
+- [x] Update notes/docs for geometry-only recognition
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/smg_set_component_descriptions.py.bak-20260420-125703`
+  - `tasks/todo.md.bak-20260420-125703`
+- Geometry-only recognition changes:
+  - `Set Component Descriptions` now builds descriptions from the actual body shape for all supported profile families.
+  - Component/body names are no longer used to infer `SHS`, `RHS`, `CHS`, `EA`, `FLAT BAR`, or `PLATE`.
+  - Flat bar vs plate now depends only on the solid-body geometry heuristic.
+- Spot checks passed:
+  - `SHS1-100x100x3` -> `None` from name parsing
+  - `RHS1-100x50x3` -> `None` from name parsing
+  - `EA1-50x50x3` -> `None` from name parsing
+  - `FB1-65x10` -> `None` from name parsing
+  - `PL-10` -> `None` from name parsing
+  - Solid rectangle `100 x 3`, long length -> `FLAT BAR 100 x 3 AS/NZS 3679.1 Grade 300`
+  - Solid rectangle `100 x 10`, short length -> `PLATE 10 AS/NZS 3678 Grade 250`
+- Syntax checks passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-125850`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+
+# Set Component Descriptions Hollow Sizing Robustness
+
+Date: 2026-04-20
+
+## Plan
+- [x] Back up files before edits
+- [x] Replace brittle hollow-section sizing with a more robust geometry measurement path
+- [x] Update notes/docs for the new sizing approach
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Created backups:
+  - `Addin/PhilsDesignTools/smg_set_component_descriptions.py.bak-20260420-125703`
+  - `tasks/todo.md.bak-20260420-125703`
+- Sizing fix:
+  - Replaced SHS/RHS sizing based on side-face plane origins with end-face loop measurement.
+  - Outer and inner loop bounds are now used to derive hollow-section outer size and wall thickness.
+  - This avoids false thin-wall reads caused by arbitrary planar face origins.
+- Helper spot checks passed:
+  - Hollow levels `[0,8,92,100] / [0,8,92,100]` -> `SHS 100 x 100 x 8 AS/NZS 1163 C350L0`
+  - Hollow levels `[0,8,92,100] / [0,8,42,50]` -> `RHS 100 x 50 x 8 AS/NZS 1163 C350L0`
+  - Angle levels `[0,8,100] / [0,8,100]` -> `EA 100 x 100 x 8 AS/NZS 3679.1 Grade 300`
+  - Solid rectangle `100 x 8`, long length -> `FLAT BAR 100 x 8 AS/NZS 3679.1 Grade 300`
+  - Solid rectangle `100 x 8`, short length -> `PLATE 8 AS/NZS 3678 Grade 250`
+- Syntax checks passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-130843`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+
+# Set Component Descriptions CHS False Positive Fix
+
+Date: 2026-04-20
+
+## Plan
+- [x] Fix CHS false positives caused by SHS/RHS cylindrical corner faces
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Root cause:
+  - Geometry-only recognition still checked for CHS before trying the end-face prismatic profile.
+  - SHS/RHS corner fillet cylinders could therefore be misclassified as `CHS`.
+- Fix applied:
+  - `Set Component Descriptions` now tries end-face prismatic profile recognition first.
+  - CHS fallback only runs when no usable prismatic end-face profile is found.
+- Syntax checks passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-131752`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+
+# Set Component Descriptions Flat Bar vs Plate Heuristic
+
+Date: 2026-04-20
+
+## Plan
+- [x] Adjust solid-part stock classification so irregular small parts prefer plate over flat bar
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Heuristic change:
+  - Flat bar is now only assigned when the largest broad planar stock face has a simple rectangular outer loop.
+  - Irregular cut tabs/brackets are treated as plate stock instead of flat bar.
+- Syntax checks passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-135531`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.

@@ -7,6 +7,10 @@ the previous add-in folder before overwriting files in the Fusion add-ins path.
 - Branch: feature/in-development
 - Summary: Added Normalize Component Structure, added Stub Arms Export DXF, hardened DXF output for Rhino compatibility (R12/AC1009), and bumped PhilsDesignTools version to 1.0.7.
 
+## 2026-04-20 13:58
+- Branch: feature/in-development
+- Summary: Added Set Component Descriptions with geometry-only profile/material recognition, hardened SHS/RHS sizing and CHS false-positive handling, refined flat bar vs plate classification, carried forward the Normalize Component Structure naming fix, and bumped PhilsDesignTools version to 1.0.8.
+
 ## 2026-03-24 13:20
 - Branch: feature/in-development
 - Summary: Stub Arms Export upgraded with filetype selection (XLSX default), screws-per-stub-arm setting (default 2), mixed-selection filtering, duplicate line dedupe, and bumped PhilsDesignTools version to 1.0.5.
