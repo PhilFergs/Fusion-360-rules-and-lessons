@@ -41,7 +41,7 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - Stub Arms Export DXF: Select stub arm lines, sketches, or components, then save a DXF containing only the stub arm line geometry.
 - Stub Arms Set Bracket: Select stub arm lines, choose Square/Swivel, then OK to reclassify.
 - Normalize Component Structure: One-click cleanup that moves mixed/multi-body direct bodies into child components and renames single direct bodies to match their parent component.
-- Set Component Descriptions: Write Fusion component Description values and simplified physical material names from the actual body geometry of supported single-body leaf members. Hollow and solid section sizes are inferred from the model shape, with end-face loop measurement used for more robust SHS/RHS sizing and broad-face outline checks used to separate flat bar from cut plate parts.
+- Set Component Descriptions: Write Fusion component Description values and simplified physical material names from the actual body geometry of supported single-body leaf members. Hollow and solid section sizes are inferred from the model shape, with end-face loop measurement used for more robust SHS/RHS sizing, explicit `UB`/`PFC`/channel-like `C` section recognition ahead of generic open-profile fallback, and broad-face outline checks used to separate flat bar from cut plate parts.
 
 ## Development notes
 - Update `Addin/CHANGELOG.md` (user-facing) and `Addin/DEVLOG.md` (working notes) with each change set.

@@ -22,6 +22,8 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Set Component Descriptions: replaced the hollow-section size inference path with end-face loop measurement after side-face plane-origin sizing produced bad thickness values on some SHS/RHS members (for example `100 x 100 x 8` being read too thin).
 - Set Component Descriptions: fixed a geometry-order bug where SHS/RHS corner fillet cylinders could be detected as CHS before the prismatic end-face profile was checked.
 - Set Component Descriptions: changed solid-part stock classification so flat bar now requires a simple rectangular broad face; irregular cut tabs/brackets are treated as plate stock instead.
+- Set Component Descriptions: added a channel-like `C` purlin geometry path ahead of EA recognition so cold-formed open sections such as `C100` members classify as `C PURLIN` instead of `EA`.
+- Set Component Descriptions: added geometry-based `UB` and `PFC` recognition so common future hot-rolled beam/channel members are classified before the more generic open-section paths.
 
 ## 2026-03-30
 - Reworked the former IGES export command into **Multi Part File Export** with a file type dropdown in the command UI.

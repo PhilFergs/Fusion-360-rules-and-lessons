@@ -16,9 +16,6 @@ SELECTION_INPUT_ID = "set_component_descriptions_selection"
 ALL_DESIGN_INPUT_ID = "set_component_descriptions_all_design"
 OVERWRITE_INPUT_ID = "set_component_descriptions_overwrite"
 
-HOLLOW_STANDARD = "AS/NZS 1163 C350L0"
-MERCHANT_STANDARD = "AS/NZS 3679.1 Grade 300"
-PLATE_STANDARD = "AS/NZS 3678 Grade 250"
 TOL = 1e-6
 ANGLE_TOL = 1e-3
 PARALLEL_DOT_TOL = 0.98
@@ -26,6 +23,7 @@ LEVEL_TOL_MM = 0.5
 DIM_TOL_MM = 1.0
 FLAT_BAR_MIN_LENGTH_RATIO = 3.0
 FLAT_BAR_MAX_WIDTH_MM = 200.0
+PURLIN_LIP_MAX_RATIO = 0.85
 
 
 class SetComponentDescriptionsCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -647,9 +645,9 @@ def _description_from_planar_stock(body, um):
     height = min(outer["width"], outer["height"])
 
     if outer["rectangular_like"]:
-        return f"FLAT BAR {_fmt_dims(height, thickness)} {MERCHANT_STANDARD}"
+        return f"FLAT BAR {_fmt_dims(height, thickness)}"
 
-    return f"PLATE {_clean_numeric(thickness)} {PLATE_STANDARD}"
+    return f"PLATE {_clean_numeric(thickness)}"
 
 
 def _profile_basis(side_faces):
@@ -704,6 +702,15 @@ def _smallest_positive_gap(levels):
     return min(gaps)
 
 
+def _positive_gaps(levels):
+    out = []
+    for i in range(len(levels) - 1):
+        gap = levels[i + 1] - levels[i]
+        if gap > LEVEL_TOL_MM * 0.25:
+            out.append(gap)
+    return sorted(out)
+
+
 def _description_from_rect_hollow(u_levels, v_levels):
     outer_u = u_levels[-1] - u_levels[0]
     outer_v = v_levels[-1] - v_levels[0]
@@ -720,10 +727,13 @@ def _description_from_rect_hollow(u_levels, v_levels):
     width = max(outer_u, outer_v)
     depth = min(outer_u, outer_v)
     family = "SHS" if abs(width - depth) <= DIM_TOL_MM else "RHS"
-    return f"{family} {_fmt_dims(width, depth, thickness)} {HOLLOW_STANDARD}"
+    return f"{family} {_fmt_dims(width, depth, thickness)}"
 
 
 def _description_from_angle(u_levels, v_levels):
+    if min(len(u_levels), len(v_levels)) < 3:
+        return None
+
     outer_u = u_levels[-1] - u_levels[0]
     outer_v = v_levels[-1] - v_levels[0]
     thk_u = _smallest_positive_gap(u_levels)
@@ -737,7 +747,137 @@ def _description_from_angle(u_levels, v_levels):
         return None
     width = max(outer_u, outer_v)
     depth = min(outer_u, outer_v)
-    return f"EA {_fmt_dims(width, depth, thickness)} {MERCHANT_STANDARD}"
+    return f"EA {_fmt_dims(width, depth, thickness)}"
+
+
+def _channel_lip_mm(levels, thickness, flange_mm):
+    for gap in _positive_gaps(levels):
+        if gap <= thickness + DIM_TOL_MM:
+            continue
+        if gap >= flange_mm * PURLIN_LIP_MAX_RATIO:
+            continue
+        return gap
+    return None
+
+
+def _description_from_c_purlin(u_levels, v_levels, outer_box):
+    if not outer_box:
+        return None
+
+    dims = _section_axis_levels(u_levels, v_levels)
+    depth_levels = dims["depth_levels"]
+    width_levels = dims["width_levels"]
+    depth = dims["depth"]
+    flange = dims["width"]
+
+    if len(depth_levels) < 4 or len(width_levels) != 3:
+        return None
+
+    outer_u = u_levels[-1] - u_levels[0]
+    outer_v = v_levels[-1] - v_levels[0]
+    thk_u = _smallest_positive_gap(u_levels)
+    thk_v = _smallest_positive_gap(v_levels)
+    candidates = [gap for gap in (thk_u, thk_v) if gap]
+    if not candidates:
+        return None
+
+    thickness = min(candidates)
+    if thickness >= flange - DIM_TOL_MM:
+        return None
+    if depth <= flange * 1.15:
+        return None
+
+    lip = _channel_lip_mm(depth_levels, thickness, flange)
+    if not lip:
+        return None
+    return f"C PURLIN {_fmt_dims(depth, flange, lip, thickness)}"
+
+
+def _section_axis_levels(u_levels, v_levels):
+    outer_u = u_levels[-1] - u_levels[0]
+    outer_v = v_levels[-1] - v_levels[0]
+    if outer_u >= outer_v:
+        return {
+            "depth_levels": u_levels,
+            "width_levels": v_levels,
+            "depth": outer_u,
+            "width": outer_v,
+        }
+    return {
+        "depth_levels": v_levels,
+        "width_levels": u_levels,
+        "depth": outer_v,
+        "width": outer_u,
+    }
+
+
+def _approx_equal(a, b, tol_mm=DIM_TOL_MM):
+    return abs(a - b) <= tol_mm
+
+
+def _description_from_ub(u_levels, v_levels, outer_box):
+    if not outer_box:
+        return None
+
+    dims = _section_axis_levels(u_levels, v_levels)
+    depth_levels = dims["depth_levels"]
+    width_levels = dims["width_levels"]
+    depth = dims["depth"]
+    width = dims["width"]
+
+    if len(depth_levels) < 4 or len(width_levels) < 4:
+        return None
+    if outer_box["edge_count"] < 10:
+        return None
+
+    flange_thickness = _smallest_positive_gap(depth_levels)
+    web_thickness = _smallest_positive_gap(width_levels)
+    if not flange_thickness or not web_thickness:
+        return None
+    if flange_thickness >= depth - DIM_TOL_MM or web_thickness >= width - DIM_TOL_MM:
+        return None
+
+    lower_flange = depth_levels[1] - depth_levels[0]
+    upper_flange = depth_levels[-1] - depth_levels[-2]
+    left_outstand = width_levels[1] - width_levels[0]
+    right_outstand = width_levels[-1] - width_levels[-2]
+
+    if not _approx_equal(lower_flange, upper_flange):
+        return None
+    if not _approx_equal(left_outstand, right_outstand):
+        return None
+
+    return f"UB {_fmt_dims(depth, width, web_thickness, flange_thickness)}"
+
+
+def _description_from_pfc(u_levels, v_levels, outer_box):
+    if not outer_box:
+        return None
+
+    dims = _section_axis_levels(u_levels, v_levels)
+    depth_levels = dims["depth_levels"]
+    width_levels = dims["width_levels"]
+    depth = dims["depth"]
+    width = dims["width"]
+
+    if len(depth_levels) != 4 or len(width_levels) != 3:
+        return None
+    if outer_box["edge_count"] < 8:
+        return None
+
+    flange_thickness = _smallest_positive_gap(depth_levels)
+    web_thickness = _smallest_positive_gap(width_levels)
+    if not flange_thickness or not web_thickness:
+        return None
+    if flange_thickness >= depth - DIM_TOL_MM or web_thickness >= width - DIM_TOL_MM:
+        return None
+
+    lower_flange = depth_levels[1] - depth_levels[0]
+    upper_flange = depth_levels[-1] - depth_levels[-2]
+    if not _approx_equal(lower_flange, upper_flange):
+        return None
+
+    return f"PFC {_fmt_dims(depth, width, web_thickness, flange_thickness)}"
 
 
 def _description_from_solid_rect(u_levels, v_levels, length_mm):
@@ -748,8 +888,8 @@ def _description_from_solid_rect(u_levels, v_levels, length_mm):
     if thickness <= 0:
         return None
     if width <= FLAT_BAR_MAX_WIDTH_MM and length_mm and length_mm >= width * FLAT_BAR_MIN_LENGTH_RATIO:
-        return f"FLAT BAR {_fmt_dims(width, thickness)} {MERCHANT_STANDARD}"
-    return f"PLATE {_clean_numeric(thickness)} {PLATE_STANDARD}"
+        return f"FLAT BAR {_fmt_dims(width, thickness)}"
+    return f"PLATE {_clean_numeric(thickness)}"
 
 
 def _description_from_body_geometry(body, um):
@@ -774,6 +914,18 @@ def _description_from_body_geometry(body, um):
                 hollow_v = [v_levels[0], inner["v_levels"][0], inner["v_levels"][-1], v_levels[-1]]
                 return _description_from_rect_hollow(hollow_u, hollow_v)
 
+        ub_desc = _description_from_ub(u_levels, v_levels, outer)
+        if ub_desc:
+            return ub_desc
+
+        pfc_desc = _description_from_pfc(u_levels, v_levels, outer)
+        if pfc_desc:
+            return pfc_desc
+
+        c_purlin_desc = _description_from_c_purlin(u_levels, v_levels, outer)
+        if c_purlin_desc:
+            return c_purlin_desc
+
         if len(u_levels) >= 3 and len(v_levels) >= 3:
             return _description_from_angle(u_levels, v_levels)
 
@@ -790,7 +942,7 @@ def _description_from_body_geometry(body, um):
         inner_radius = min(cyl_radii)
         thickness = outer_radius - inner_radius
         if thickness > 0:
-            return f"CHS {_fmt_dims(outer_radius * 2.0, thickness)} {HOLLOW_STANDARD}"
+            return f"CHS {_fmt_dims(outer_radius * 2.0, thickness)}"
 
     return None
 
@@ -820,6 +972,12 @@ def _material_name_from_description(desc):
         return "Steel - CHS"
     if norm.startswith("EA "):
         return "Steel - EA"
+    if norm.startswith("UB "):
+        return "Steel - UB"
+    if norm.startswith("PFC "):
+        return "Steel - PFC"
+    if norm.startswith("C PURLIN "):
+        return "Steel - C Purlin"
     if norm.startswith("FLAT BAR "):
         return "Steel - Flat Bar"
     if norm.startswith("PLATE "):

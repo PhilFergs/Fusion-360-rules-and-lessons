@@ -754,3 +754,103 @@ Date: 2026-04-20
 - Mirror verification:
   - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-135531`
   - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+
+# Set Component Descriptions C Purlin Recognition
+
+Date: 2026-04-20
+
+## Plan
+- [x] Add a channel-like geometry path ahead of EA detection for cold-formed `C` sections
+- [x] Update add-in notes for the broader profile coverage
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Root cause:
+  - The prior `EA` geometry path accepted any open thin-walled profile with three-or-more level bands on both axes.
+  - That allowed channel-like `C100` purlins to fall through as equal angle.
+- Fix applied:
+  - Added a `C PURLIN` geometry path before EA classification.
+  - Tightened EA recognition so profiles with channel-like extra level bands do not get treated as angle.
+  - Added simplified material mapping for `C PURLIN` -> `Steel - C Purlin`.
+- Syntax checks passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-143739`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+
+# Set Component Descriptions UB And PFC Recognition
+
+Date: 2026-04-20
+
+## Plan
+- [x] Add explicit geometry recognition for hot-rolled `UB` and `PFC` profiles
+- [x] Keep `UB`/`PFC` detection ahead of the broader open-section fallbacks
+- [x] Update notes for the new profile coverage
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- New profile coverage:
+  - Added `UB depth x width x web x flange AS/NZS 3679.1 Grade 300` recognition from symmetric I-section end profiles.
+  - Added `PFC depth x width x web x flange AS/NZS 3679.1 Grade 300` recognition from channel end profiles.
+  - Added simplified material mappings `Steel - UB` and `Steel - PFC`.
+- Syntax checks passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-144130`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+
+# Set Component Descriptions C Purlin Tightening
+
+Date: 2026-04-20
+
+## Plan
+- [x] Tighten `C PURLIN` recognition so equal angles do not fall through as purlins
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Root cause:
+  - The `C PURLIN` path still accepted some plain open L-sections when hole/fillet detail increased the detected end-profile edge count.
+- Fix applied:
+  - `C PURLIN` now requires a real lip signature in the major-axis level bands.
+  - Plain open sections without a detected lip fall back to `EA`/other profile checks instead of being labelled as purlins.
+- Follow-up tightening:
+  - `C PURLIN` now also requires a channel-like level pattern of `depth >= 4 bands` and `width == 3 bands`, plus a clear depth-vs-flange difference.
+  - `EA` recognition now tolerates extra section bands introduced by fillets, so equal angles like `40 x 40 x 3` no longer fall through when their inner radii create extra projection levels.
+- Syntax checks passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260420-155745`
+  - Repo and active installed copies of `smg_set_component_descriptions.py` match by SHA-256.
+# Set Component Descriptions - Strip Standards
+
+Date: 2026-04-27
+
+## Plan
+- [x] Back up target script before edit
+- [x] Remove standards/grade suffix from generated profile descriptions for all profile families
+- [x] Run syntax checks
+- [x] Mirror updated script to active Fusion add-in folder
+
+## Verification Notes
+- Created backup:
+  - `Addin/PhilsDesignTools/smg_set_component_descriptions.py.bak-20260427-135231`
+  - `tasks/todo.md.bak-20260427-140348`
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260427-140124`
+- Updated output format examples:
+  - `EA 50 x 50 x 3` (instead of including AS/NZS + Grade text)
+  - Same profile-only format now applied to SHS/RHS/CHS/UB/PFC/FLAT BAR/PLATE.
+- Syntax checks passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_set_component_descriptions.py`
+  - `py -3 -m py_compile` on mirrored active file.

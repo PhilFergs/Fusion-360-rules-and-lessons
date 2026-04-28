@@ -44,6 +44,8 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Set Component Descriptions: hollow-section sizing now uses end-face loop measurement instead of side-face plane origins, improving SHS/RHS wall-thickness reliability on sections like `100 x 100 x 8`.
 - Set Component Descriptions: geometry classification now prioritizes end-face prismatic profiles before CHS fallback, preventing SHS/RHS corner fillet cylinders from being misread as round tube.
 - Set Component Descriptions: flat bar is now reserved for parts whose broad stock face is a simple rectangle; smaller cut tabs and irregular sheet parts now classify as plate instead of flat bar.
+- Set Component Descriptions: channel-like cold-formed `C` sections are now recognised before EA fallback, so parts such as `C100` purlins no longer drop through as equal angle.
+- Set Component Descriptions: added geometry recognition for `UB` and `PFC` sections so future hot-rolled beam/channel jobs can populate descriptions and simplified material names without relying on naming text.
 - Normalize Component Structure: converted child components now avoid generic source names like `Body1`/`Body2` by using parent-based fallback names during conversion.
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.
