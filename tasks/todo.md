@@ -854,3 +854,29 @@ Date: 2026-04-27
 - Syntax checks passed:
   - `py -3 -m py_compile Addin/PhilsDesignTools/smg_set_component_descriptions.py`
   - `py -3 -m py_compile` on mirrored active file.
+# Installer Hardening (MSI Wrapper)
+
+Date: 2026-04-28
+
+## Plan
+- [x] Add MSI build path to installer packaging workflow
+- [x] Keep existing ZIP package path as fallback
+- [x] Use local portable WiX extraction (no machine-wide install required)
+- [x] Build MSI that runs packaged install script automatically
+- [x] Document MSI/signing workflow in installer README
+- [x] Build and verify updated artifacts in dist
+
+## Verification Notes
+- Backups created:
+  - `Addin/tools/installer/build_installer_package.ps1.bak-20260428-220052`
+  - `Addin/tools/installer/README.md.bak-20260428-220052`
+  - `tasks/todo.md.bak-20260428-220605`
+- Updated files:
+  - `Addin/tools/installer/build_installer_package.ps1`
+  - `Addin/tools/installer/README.md`
+- Build output confirmed:
+  - `fusion360-addins-installer-pdt-1.0.8-bom-1.03.zip`
+  - `fusion360-addins-installer-pdt-1.0.8-bom-1.03.msi`
+- WiX CLI handling:
+  - Portable WiX 7 CLI is downloaded/extracted automatically into `%LOCALAPPDATA%\FusionInstallerTools\wix-cli-7`.
+  - Build auto-accepts WiX `wix7` EULA for CI/scripted usage.
