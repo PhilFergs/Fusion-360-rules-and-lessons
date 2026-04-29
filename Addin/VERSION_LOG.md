@@ -3,6 +3,10 @@
 Each upload should add a dated entry here and use the deploy script to back up
 the previous add-in folder before overwriting files in the Fusion add-ins path.
 
+## 2026-04-29 10:30
+- Branch: feature/in-development
+- Summary: Added the Stub Arms To Wall max pair angle control (default 45 deg), kept upper-line generation unchanged while constraining the lower line, and bumped PhilsDesignTools version to 1.0.9.
+
 ## 2026-04-17 16:45
 - Branch: feature/in-development
 - Summary: Added Normalize Component Structure, added Stub Arms Export DXF, hardened DXF output for Rhino compatibility (R12/AC1009), and bumped PhilsDesignTools version to 1.0.7.

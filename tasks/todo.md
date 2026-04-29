@@ -916,3 +916,25 @@ Date: 2026-04-29
   - Replaced `um.defaultAngleUnits` with a fixed `"deg"` unit string because this Fusion build's `UnitsManager` does not expose `defaultAngleUnits`.
   - Verified both repo and active installed copies still compile after the hotfix.
   - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_stub_arms.py.bak-20260429-102351`
+
+# Installer Refresh For 1.0.9
+
+Date: 2026-04-29
+
+## Plan
+- [x] Bump PhilsDesignTools manifest version for the new stub-arm behavior
+- [x] Add a version log entry for the new package build
+- [x] Rebuild installer artifacts from the current source
+- [x] Refresh the single-addin ZIP to the same version for consistency
+- [x] Stage only the intended version/build outputs
+- [x] Commit and push the package refresh
+
+## Verification Notes
+- Manifest bumped:
+  - `Addin/PhilsDesignTools/PhilsDesignTools.manifest` -> `1.0.9`
+- Version log updated:
+  - `Addin/VERSION_LOG.md`
+- Build outputs confirmed:
+  - `Addin/tools/dist/fusion360-addins-installer-pdt-1.0.9-bom-1.03.zip`
+  - `Addin/tools/dist/fusion360-addins-installer-pdt-1.0.9-bom-1.03.msi`
+  - `PhilsDesignTools-1.0.9.zip`
