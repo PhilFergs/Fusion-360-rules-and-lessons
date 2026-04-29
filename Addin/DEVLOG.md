@@ -24,6 +24,7 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Set Component Descriptions: changed solid-part stock classification so flat bar now requires a simple rectangular broad face; irregular cut tabs/brackets are treated as plate stock instead.
 - Set Component Descriptions: added a channel-like `C` purlin geometry path ahead of EA recognition so cold-formed open sections such as `C100` members classify as `C PURLIN` instead of `EA`.
 - Set Component Descriptions: added geometry-based `UB` and `PFC` recognition so common future hot-rolled beam/channel members are classified before the more generic open-section paths.
+- Stub Arms To Wall: added a `Max pair angle` setting (default `45 deg`) and a post-clearance lower-endpoint adjustment so the top line generation remains unchanged while the lower line is tightened along the member axis when needed.
 
 ## 2026-03-30
 - Reworked the former IGES export command into **Multi Part File Export** with a file type dropdown in the command UI.

@@ -22,6 +22,7 @@ STUB_BOTTOM_DEFAULT_MM = 200.0
 STUB_TOP_DEFAULT_MM = 150.0
 STUB_CLEARANCE_DEFAULT_MM = 200.0
 STUB_WALL_INSET_DEFAULT_MM = 60.0
+STUB_MAX_PAIR_ANGLE_DEFAULT_DEG = 45.0
 STUB_SETTINGS_ATTR_NAME = "StubArmsSettings"
 
 TOL = 1e-6
@@ -142,6 +143,14 @@ class StubArmsCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 "Wall inset",
                 length_units,
                 v(safe_float("wall_inset_mm", STUB_WALL_INSET_DEFAULT_MM)),
+            )
+            inputs.addValueInput(
+                "stub_max_pair_angle",
+                "Max pair angle",
+                "deg",
+                adsk.core.ValueInput.createByString(
+                    f"{safe_float('max_pair_angle_deg', STUB_MAX_PAIR_ANGLE_DEFAULT_DEG)} deg"
+                ),
             )
 
             on_exec = StubArmsExecuteHandler()
@@ -454,6 +463,7 @@ def _default_stub_settings():
         "top_mm": STUB_TOP_DEFAULT_MM,
         "clearance_mm": STUB_CLEARANCE_DEFAULT_MM,
         "wall_inset_mm": STUB_WALL_INSET_DEFAULT_MM,
+        "max_pair_angle_deg": STUB_MAX_PAIR_ANGLE_DEFAULT_DEG,
     }
 
 
@@ -1328,6 +1338,67 @@ def _adjust_lower_for_clearance(lower, upper, hit, axis_dir, faces, sk_cache, cl
     return lower, False
 
 
+def _pair_angle_deg_at_hit(lower, upper, hit):
+    if not lower or not upper or not hit:
+        return None
+    upper_vec = adsk.core.Vector3D.create(
+        upper.x - hit.x,
+        upper.y - hit.y,
+        upper.z - hit.z,
+    )
+    lower_vec = adsk.core.Vector3D.create(
+        lower.x - hit.x,
+        lower.y - hit.y,
+        lower.z - hit.z,
+    )
+    return _angle_deg_between_vectors_3d(upper_vec, lower_vec)
+
+
+def _adjust_lower_for_max_angle(lower, upper, hit, axis_dir, max_angle_deg):
+    if not lower or not upper or not hit:
+        return lower, True
+    if max_angle_deg is None or max_angle_deg <= TOL:
+        return lower, True
+    cur_angle = _pair_angle_deg_at_hit(lower, upper, hit)
+    if cur_angle is None or cur_angle <= max_angle_deg + 1e-6:
+        return lower, True
+
+    axis = _normalise(axis_dir)
+    if not axis:
+        return lower, True
+
+    to_upper = adsk.core.Vector3D.create(
+        upper.x - lower.x,
+        upper.y - lower.y,
+        upper.z - lower.z,
+    )
+    max_shift = to_upper.dotProduct(axis)
+    if max_shift <= TOL:
+        return lower, False
+
+    lo = 0.0
+    hi = max_shift
+    best = upper
+    found = False
+
+    for _ in range(28):
+        mid = (lo + hi) * 0.5
+        cand = _offset_point(lower, axis, mid)
+        cand_angle = _pair_angle_deg_at_hit(cand, upper, hit)
+        if cand_angle is None:
+            break
+        if cand_angle <= max_angle_deg + 1e-6:
+            best = cand
+            hi = mid
+            found = True
+        else:
+            lo = mid
+
+    if found:
+        return best, True
+    return lower, False
+
+
 def _offset_hit_from_wall(hit, upper, hit_entry, inset_u):
     if not hit or not upper or not hit_entry:
         return hit
@@ -1884,6 +1955,15 @@ def _execute(args):
     clearance_mm = mm_val("stub_clearance")
     clearance_u = um.convert(clearance_mm, "mm", um.internalUnits)
     wall_inset_mm_raw = mm_val("stub_wall_inset")
+    max_pair_angle_in = adsk.core.ValueCommandInput.cast(inputs.itemById("stub_max_pair_angle"))
+    max_pair_angle_deg = None
+    if max_pair_angle_in:
+        max_pair_angle_deg = um.convert(max_pair_angle_in.value, um.internalUnits, "deg")
+    if max_pair_angle_deg is None:
+        max_pair_angle_deg = STUB_MAX_PAIR_ANGLE_DEFAULT_DEG
+    if max_pair_angle_deg <= 0.0:
+        ctx.ui().messageBox("Max pair angle must be greater than 0 degrees.")
+        return
     wall_inset_mm = max(0.0, wall_inset_mm_raw)
     if wall_inset_mm_raw < 0 and DEBUG_STUB_ARMS:
         _dbg(f"Wall inset was negative ({wall_inset_mm_raw:.2f} mm); clamped to 0")
@@ -1903,7 +1983,7 @@ def _execute(args):
     _dbg(
         f"Selected faces={len(faces)}, wall_faces={len(wall_faces)}, "
         f"points={desired_count}, spacing_mm=[{min_mm},{max_mm}], "
-        f"wall_inset_mm={wall_inset_mm}"
+        f"wall_inset_mm={wall_inset_mm}, max_pair_angle_deg={max_pair_angle_deg}"
     )
 
     logger.log_command(
@@ -1917,6 +1997,7 @@ def _execute(args):
             "bottom_mm": bottom_mm,
             "top_mm": top_mm,
             "wall_inset_mm": wall_inset_mm,
+            "max_pair_angle_deg": max_pair_angle_deg,
         },
     )
 
@@ -1930,6 +2011,7 @@ def _execute(args):
             "top_mm": top_mm,
             "clearance_mm": clearance_mm,
             "wall_inset_mm": wall_inset_mm,
+            "max_pair_angle_deg": max_pair_angle_deg,
         },
     )
 
@@ -2125,6 +2207,10 @@ def _execute(args):
             lower_adj, draw_lower = _adjust_lower_for_clearance(
                 lower, upper, hit, axis_dir, wall_faces, wall_center_sketches, clearance_u
             )
+            if draw_lower:
+                lower_adj, draw_lower = _adjust_lower_for_max_angle(
+                    lower_adj, upper, hit, axis_dir, max_pair_angle_deg
+                )
             arm_dir = adsk.core.Vector3D.create(
                 hit.x - upper.x,
                 hit.y - upper.y,
@@ -2323,6 +2409,10 @@ def _execute(args):
             lower_adj, draw_lower = _adjust_lower_for_clearance(
                 lower, upper, hit, axis_dir, wall_faces, wall_center_sketches, clearance_u
             )
+            if draw_lower:
+                lower_adj, draw_lower = _adjust_lower_for_max_angle(
+                    lower_adj, upper, hit, axis_dir, max_pair_angle_deg
+                )
             arm_dir = adsk.core.Vector3D.create(
                 hit.x - upper.x,
                 hit.y - upper.y,

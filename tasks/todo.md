@@ -880,3 +880,39 @@ Date: 2026-04-28
 - WiX CLI handling:
   - Portable WiX 7 CLI is downloaded/extracted automatically into `%LOCALAPPDATA%\FusionInstallerTools\wix-cli-7`.
   - Build auto-accepts WiX `wix7` EULA for CI/scripted usage.
+
+# Stub Arms Max Pair Angle
+
+Date: 2026-04-29
+
+## Plan
+- [x] Back up `smg_stub_arms.py` before edits
+- [x] Add a user-adjustable max pair angle input to the Stub Arms To Wall command
+- [x] Keep the current upper-line hit generation unchanged
+- [x] Limit only the lower line by sliding its member-side endpoint along the member axis when needed
+- [x] Update add-in notes
+- [x] Run syntax checks
+- [x] Mirror updated file to active Fusion add-in folder
+
+## Verification Notes
+- Backup created:
+  - `Addin/PhilsDesignTools/smg_stub_arms.py.bak-20260429-101049`
+- New UI/settings:
+  - Added `Max pair angle` input to `Stub Arms To Wall`.
+  - Default is `45 deg`, and the value is persisted in the command settings.
+- Geometry behavior:
+  - Upper pair line generation remains unchanged.
+  - Lower pair line still applies the existing wall-clearance adjustment first.
+  - If the included angle at the shared wall-hit point is greater than the requested maximum, the lower member-side endpoint is moved along the member axis toward the upper point until the angle is within limit.
+- Syntax checks passed:
+  - `py_compile` on repo file:
+    - `Addin/PhilsDesignTools/smg_stub_arms.py`
+  - `py_compile` on mirrored active add-in file:
+    - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_stub_arms.py`
+- Mirror verification:
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_stub_arms.py.bak-20260429-101248`
+  - Repo and active installed copies of `smg_stub_arms.py` match by SHA-256.
+- UI hotfix:
+  - Replaced `um.defaultAngleUnits` with a fixed `"deg"` unit string because this Fusion build's `UnitsManager` does not expose `defaultAngleUnits`.
+  - Verified both repo and active installed copies still compile after the hotfix.
+  - Active add-in backup created: `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_stub_arms.py.bak-20260429-102351`

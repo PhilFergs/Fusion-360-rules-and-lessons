@@ -36,7 +36,7 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - New Component Set: Enter prefix, number range (for example 1-40), and suffix, then OK.
 - Wireframe From Body: Select solid bodies (6 faces), then OK to create centerline sketches and hide bodies.
 - Hole Cut From Face: Select a cylindrical hole face and a target body, then OK to cut.
-- Stub Arms To Wall: Optimized stub arms tool. Select RHS column bodies and wall faces/bodies, set connection count and offsets, then OK.
+- Stub Arms To Wall: Optimized stub arms tool. Select RHS column bodies and wall faces/bodies, set connection count and offsets, and optionally cap the included angle between the upper and lower pair lines (default `45 deg`), then OK.
 - Stub Arms Export: Select stub arm lines or sketches, choose export options and filetype, then save.
 - Stub Arms Export DXF: Select stub arm lines, sketches, or components, then save a DXF containing only the stub arm line geometry.
 - Stub Arms Set Bracket: Select stub arm lines, choose Square/Swivel, then OK to reclassify.

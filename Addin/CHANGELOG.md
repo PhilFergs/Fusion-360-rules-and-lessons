@@ -46,6 +46,7 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Set Component Descriptions: flat bar is now reserved for parts whose broad stock face is a simple rectangle; smaller cut tabs and irregular sheet parts now classify as plate instead of flat bar.
 - Set Component Descriptions: channel-like cold-formed `C` sections are now recognised before EA fallback, so parts such as `C100` purlins no longer drop through as equal angle.
 - Set Component Descriptions: added geometry recognition for `UB` and `PFC` sections so future hot-rolled beam/channel jobs can populate descriptions and simplified material names without relying on naming text.
+- Stub Arms To Wall: added a user-adjustable `Max pair angle` input (default `45 deg`) that keeps the upper pair line unchanged and slides the lower endpoint along the member when the included angle would otherwise open too far.
 - Normalize Component Structure: converted child components now avoid generic source names like `Body1`/`Body2` by using parent-based fallback names during conversion.
 - Added per-command usage logging across all existing commands.
 - Split Body now exposes Extend split tool and handles split failures gracefully.
