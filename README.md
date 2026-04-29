@@ -2,12 +2,14 @@
 
 This repo contains release zip packages:
 
-- PhilsDesignTools-1.0.8.zip
+- PhilsDesignTools-1.0.9.zip
   - Steel member generation + utilities (EA/SHS/RHS, rotate, rename, hole cut, stub arms, exports).
 - PhilsBom.bundle-1.03.zip
   - BOM export add-in (CSV/XLSX/XML/JSON, unit control, include/exclude options, mass totals).
-- fusion360-addins-installer-pdt-1.0.8-bom-1.03.zip
+- fusion360-addins-installer-pdt-1.0.9-bom-1.03.zip
   - One-click installer package for both add-ins (PhilsDesignTools + PhilsBom.bundle) with overwrite support.
+- fusion360-addins-installer-pdt-1.0.9-bom-1.03.msi
+  - Windows MSI wrapper that runs the packaged Fusion add-ins installer for both add-ins.
 
 Package notes:
 - `PhilsDesignTools-*.zip` and `PhilsBom.bundle-*.zip` contain add-in folders plus install notes.
