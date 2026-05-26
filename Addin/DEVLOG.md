@@ -6,6 +6,10 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Add a brief entry to this DEVLOG for each change set.
 - Update CHANGELOG.md under Unreleased for user-facing changes.
 
+## 2026-05-11
+- Stub Arms To Wall: reintroduced `Top line angle` narrowly after rolling back the first attempt; `0 deg` leaves the known-good shared wall endpoint untouched.
+- The new top-angle adjustment moves the shared wall endpoint for both lines along the column axis, preserving the existing paired brace shape while allowing the top FlatBar angle to be tuned.
+
 ## 2026-04-17
 - Added a new **Normalize Component Structure** command to convert mixed/multi-body components into cleaner child-component structure and rename single direct bodies to match their parent component names.
 - Added a new **Stub Arms Export DXF** command that exports selected stub arm sketch lines as DXF `LINE` entities in mm using world/model coordinates.

@@ -22,6 +22,7 @@ STUB_BOTTOM_DEFAULT_MM = 200.0
 STUB_TOP_DEFAULT_MM = 150.0
 STUB_CLEARANCE_DEFAULT_MM = 200.0
 STUB_WALL_INSET_DEFAULT_MM = 60.0
+STUB_TOP_LINE_ANGLE_DEFAULT_DEG = 0.0
 STUB_MAX_PAIR_ANGLE_DEFAULT_DEG = 45.0
 STUB_SETTINGS_ATTR_NAME = "StubArmsSettings"
 
@@ -143,6 +144,14 @@ class StubArmsCreatedHandler(adsk.core.CommandCreatedEventHandler):
                 "Wall inset",
                 length_units,
                 v(safe_float("wall_inset_mm", STUB_WALL_INSET_DEFAULT_MM)),
+            )
+            inputs.addValueInput(
+                "stub_top_line_angle",
+                "Top line angle",
+                "deg",
+                adsk.core.ValueInput.createByString(
+                    f"{safe_float('top_line_angle_deg', STUB_TOP_LINE_ANGLE_DEFAULT_DEG)} deg"
+                ),
             )
             inputs.addValueInput(
                 "stub_max_pair_angle",
@@ -463,6 +472,7 @@ def _default_stub_settings():
         "top_mm": STUB_TOP_DEFAULT_MM,
         "clearance_mm": STUB_CLEARANCE_DEFAULT_MM,
         "wall_inset_mm": STUB_WALL_INSET_DEFAULT_MM,
+        "top_line_angle_deg": STUB_TOP_LINE_ANGLE_DEFAULT_DEG,
         "max_pair_angle_deg": STUB_MAX_PAIR_ANGLE_DEFAULT_DEG,
     }
 
@@ -1469,6 +1479,52 @@ def _align_hit_to_upper(hit, upper, axis_dir, hit_entry, sk_cache):
     return hit, False
 
 
+def _adjust_shared_hit_for_top_line_angle(hit, upper, axis_dir, hit_entry, wall_faces, sk_cache, angle_deg):
+    if not hit or not upper or not axis_dir:
+        return hit, False
+    if angle_deg is None or abs(angle_deg) <= ANGLE_TOL:
+        return hit, False
+    axis_n = _normalise(axis_dir)
+    if not axis_n or axis_n.length < TOL:
+        return hit, False
+    run_vec = adsk.core.Vector3D.create(hit.x - upper.x, hit.y - upper.y, hit.z - upper.z)
+    axial_run = run_vec.dotProduct(axis_n)
+    base_dir = adsk.core.Vector3D.create(
+        run_vec.x - axis_n.x * axial_run,
+        run_vec.y - axis_n.y * axial_run,
+        run_vec.z - axis_n.z * axial_run,
+    )
+    if base_dir.length < TOL:
+        return hit, False
+    base_dir.normalize()
+
+    rad = math.radians(angle_deg)
+    ray_dir = adsk.core.Vector3D.create(
+        base_dir.x * math.cos(rad) + axis_n.x * math.sin(rad),
+        base_dir.y * math.cos(rad) + axis_n.y * math.sin(rad),
+        base_dir.z * math.cos(rad) + axis_n.z * math.sin(rad),
+    )
+    if ray_dir.length < TOL:
+        return hit, False
+    ray_dir.normalize()
+
+    angled_hit = None
+    if wall_faces:
+        angled_hit, _ = _intersect_ray_with_faces_onface(upper, ray_dir, wall_faces, sk_cache)
+    if angled_hit:
+        return angled_hit, True
+
+    shift = math.tan(rad) * base_dir.dotProduct(run_vec)
+    cand = _offset_point(hit, axis_n, shift)
+    face = hit_entry.get("asm") if isinstance(hit_entry, dict) else hit_entry
+    plane = _get_face_plane(face) if face else None
+    if plane:
+        projected = _project_point_to_plane(cand, plane.origin, plane.normal)
+        if projected:
+            cand = projected
+    return cand, True
+
+
 def _line_dir_for_face(face_normal, axis_dir, comp_axes):
     n = _normalise(face_normal)
     axis_n = _normalise(axis_dir)
@@ -1938,6 +1994,15 @@ def _execute(args):
         v = adsk.core.ValueCommandInput.cast(inputs.itemById(cid))
         return um.convert(v.value, um.internalUnits, "mm")
 
+    def deg_val(cid, default):
+        v = adsk.core.ValueCommandInput.cast(inputs.itemById(cid))
+        if not v:
+            return default
+        try:
+            return math.degrees(float(v.value))
+        except:
+            return default
+
     bottom_mm = mm_val("stub_bottom")
     top_mm = mm_val("stub_top")
     desired_count = count_in.value if count_in else 6
@@ -1955,6 +2020,10 @@ def _execute(args):
     clearance_mm = mm_val("stub_clearance")
     clearance_u = um.convert(clearance_mm, "mm", um.internalUnits)
     wall_inset_mm_raw = mm_val("stub_wall_inset")
+    top_line_angle_deg = deg_val("stub_top_line_angle", STUB_TOP_LINE_ANGLE_DEFAULT_DEG)
+    if abs(top_line_angle_deg) >= 89.0:
+        ctx.ui().messageBox("Top line angle must be between -89 and 89 degrees.")
+        return
     max_pair_angle_in = adsk.core.ValueCommandInput.cast(inputs.itemById("stub_max_pair_angle"))
     max_pair_angle_deg = None
     if max_pair_angle_in:
@@ -1983,7 +2052,8 @@ def _execute(args):
     _dbg(
         f"Selected faces={len(faces)}, wall_faces={len(wall_faces)}, "
         f"points={desired_count}, spacing_mm=[{min_mm},{max_mm}], "
-        f"wall_inset_mm={wall_inset_mm}, max_pair_angle_deg={max_pair_angle_deg}"
+        f"wall_inset_mm={wall_inset_mm}, top_line_angle_deg={top_line_angle_deg}, "
+        f"max_pair_angle_deg={max_pair_angle_deg}"
     )
 
     logger.log_command(
@@ -1997,6 +2067,7 @@ def _execute(args):
             "bottom_mm": bottom_mm,
             "top_mm": top_mm,
             "wall_inset_mm": wall_inset_mm,
+            "top_line_angle_deg": top_line_angle_deg,
             "max_pair_angle_deg": max_pair_angle_deg,
         },
     )
@@ -2011,6 +2082,7 @@ def _execute(args):
             "top_mm": top_mm,
             "clearance_mm": clearance_mm,
             "wall_inset_mm": wall_inset_mm,
+            "top_line_angle_deg": top_line_angle_deg,
             "max_pair_angle_deg": max_pair_angle_deg,
         },
     )
@@ -2032,6 +2104,8 @@ def _execute(args):
     lines_created = 0
     cols_skipped = []
     pair_missed = 0
+    top_angle_adjusted = 0
+    top_angle_max_move_u = 0.0
 
     for face in faces:
         body = face.body
@@ -2193,6 +2267,14 @@ def _execute(args):
                         _dbg(f"Pair {i}: hit from {hit_from} could not align to upper; skipped")
                     pair_missed += 1
                     continue
+            hit_angled, angled = _adjust_shared_hit_for_top_line_angle(
+                hit, upper, axis_dir, hit_entry, wall_faces, wall_center_sketches, top_line_angle_deg
+            )
+            if angled:
+                top_angle_adjusted += 1
+                top_angle_max_move_u = max(top_angle_max_move_u, hit.distanceTo(hit_angled))
+                hit = hit_angled
+                hit_from = f"{hit_from}_top_angle"
             hit_before_inset = hit
             hit = _offset_hit_from_wall(hit, upper, hit_entry, wall_inset_u)
             if DEBUG_STUB_ARMS and hit_before_inset and hit:
@@ -2395,6 +2477,14 @@ def _execute(args):
                         _dbg(f"Pair {i}: hit from {hit_from} could not align to upper; skipped")
                     pair_missed += 1
                     continue
+            hit_angled, angled = _adjust_shared_hit_for_top_line_angle(
+                hit, upper, axis_dir, hit_entry, wall_faces, wall_center_sketches, top_line_angle_deg
+            )
+            if angled:
+                top_angle_adjusted += 1
+                top_angle_max_move_u = max(top_angle_max_move_u, hit.distanceTo(hit_angled))
+                hit = hit_angled
+                hit_from = f"{hit_from}_top_angle"
             hit_before_inset = hit
             hit = _offset_hit_from_wall(hit, upper, hit_entry, wall_inset_u)
             if DEBUG_STUB_ARMS and hit_before_inset and hit:
@@ -2476,6 +2566,13 @@ def _execute(args):
         pass
 
     msg = [f"Created {lines_created} stub arm line(s)."]
+    if abs(top_line_angle_deg) > ANGLE_TOL:
+        top_angle_max_move_mm = um.convert(top_angle_max_move_u, um.internalUnits, "mm")
+        msg.append(
+            f"Top line angle parsed: {top_line_angle_deg:.2f} deg\n"
+            f"Top angle adjusted pairs: {top_angle_adjusted}\n"
+            f"Largest endpoint move: {top_angle_max_move_mm:.1f} mm"
+        )
     if cols_skipped:
         msg.append("Skipped columns:\n  " + "\n  ".join(sorted(set(cols_skipped))))
     if pair_missed:

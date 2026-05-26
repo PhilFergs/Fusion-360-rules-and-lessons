@@ -97,16 +97,6 @@ def _safe_angle_value_deg(inputs, cid, um):
     if not v:
         return DEFAULT_TOP_ANGLE_DEG
     try:
-        expr = getattr(v, "expression", None)
-        if expr:
-            return float(um.evaluateExpression(expr, "deg"))
-    except:
-        pass
-    try:
-        return float(um.convert(v.value, "rad", "deg"))
-    except:
-        pass
-    try:
         return math.degrees(float(v.value))
     except:
         return DEFAULT_TOP_ANGLE_DEG

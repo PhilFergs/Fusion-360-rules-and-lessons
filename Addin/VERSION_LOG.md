@@ -3,6 +3,10 @@
 Each upload should add a dated entry here and use the deploy script to back up
 the previous add-in folder before overwriting files in the Fusion add-ins path.
 
+## 2026-05-26 10:10
+- Branch: feature/in-development
+- Summary: Refined the live Stub Arms To Wall behavior to match the current installed version, including the max pair angle control and the latest stub-arm pair generation adjustments, and bumped PhilsDesignTools version to 1.0.10.
+
 ## 2026-04-29 10:30
 - Branch: feature/in-development
 - Summary: Added the Stub Arms To Wall max pair angle control (default 45 deg), kept upper-line generation unchanged while constraining the lower line, and bumped PhilsDesignTools version to 1.0.9.

@@ -1,3 +1,47 @@
+# Stub Arms Angle Regression Isolation
+
+Date: 2026-05-11
+
+## Plan
+- [x] Compare the current generator with the pre-top-angle deployment backup.
+- [x] Roll back `smg_stub_arms.py` to the pre-top-angle implementation for a clean live A/B test.
+- [x] Run syntax checks and deploy the rollback to the active Fusion add-in folder.
+
+## Verification Notes
+- The `20260511_082100` live backup did not contain `Top line angle`; current generator code was reverted to match that pre-change behavior.
+- `python -m py_compile Addin\PhilsDesignTools\smg_stub_arms.py` passed after rollback.
+
+# Stub Arms Shared Top Angle
+
+Date: 2026-05-11
+
+## Plan
+- [x] Re-add `Top line angle` from the known-good rollback version only.
+- [x] Keep the current shared wall endpoint behavior when the angle is `0 deg`.
+- [x] Run syntax checks and deploy to the active Fusion add-in folder.
+
+## Verification Notes
+- The new setting adjusts the shared wall endpoint for both FlatBar and EA lines, rather than creating a separate lower endpoint.
+- `0 deg` returns before changing the hit point, preserving the current generated geometry.
+- `python -m py_compile Addin\PhilsDesignTools\smg_stub_arms.py` passed.
+- Deployed with `Addin\tools\deploy_addin.ps1`; installed file contains `stub_top_line_angle` and no `stub_min_pair_angle`.
+- Follow-up fix: changed the top-angle adjustment from same-face point sliding to a fresh angled ray/wall intersection so non-zero angles visibly change the generated endpoint.
+- Follow-up fix 2: if the angled ray misses the trimmed wall face, the endpoint is now directly shifted by `tan(angle) * run` and projected to the wall plane instead of falling back unchanged.
+- Follow-up fix 3: Fusion stores angle input values in radians; `Top line angle` now converts `v.value` with `math.degrees`, so an input of `20` parses as `20 deg` instead of `0.35 deg`.
+
+# Stub Arm Pair Angle Parsing
+
+Date: 2026-05-12
+
+## Plan
+- [x] Apply the same Fusion angle parsing fix to `Stub Arm Pair To Wall`.
+- [x] Run syntax checks and deploy to the active Fusion add-in folder.
+
+## Verification Notes
+- The single-pair top angle now converts Fusion's internal radian value with `math.degrees(v.value)`, matching the bulk Stub Arms To Wall fix.
+- `python -m py_compile Addin\PhilsDesignTools\smg_stub_arm_pair.py Addin\PhilsDesignTools\smg_stub_arms.py` passed.
+- Deployed with `Addin\tools\deploy_addin.ps1`; installed `smg_stub_arm_pair.py` now uses `math.degrees(float(v.value))`.
+
 # Bulk Replace Components Command
 
 Date: 2026-03-30
@@ -938,3 +982,28 @@ Date: 2026-04-29
   - `Addin/tools/dist/fusion360-addins-installer-pdt-1.0.9-bom-1.03.zip`
   - `Addin/tools/dist/fusion360-addins-installer-pdt-1.0.9-bom-1.03.msi`
   - `PhilsDesignTools-1.0.9.zip`
+
+# Installer Refresh For 1.0.10
+
+Date: 2026-05-26
+
+## Plan
+- [x] Confirm the live installed stub-arm files match the current working source
+- [x] Bump PhilsDesignTools version metadata for a fresh release package
+- [x] Add a version log entry for the current live-matching stub-arm behavior
+- [x] Build fresh 1.0.10 installer and standalone package artifacts
+- [x] Commit and push the updated source plus artifacts on `feature/in-development`
+- [ ] Refresh `main` release files and direct download links to 1.0.10
+
+## Verification Notes
+- Live install check:
+  - Current working copies of `smg_stub_arms.py`, `smg_stub_arm_pair.py`, and `PhilsDesignTools.manifest` match the active Fusion add-in install by SHA-256.
+- Syntax checks passed:
+  - `py_compile` on:
+    - `Addin/PhilsDesignTools/smg_stub_arms.py`
+    - `Addin/PhilsDesignTools/smg_stub_arm_pair.py`
+    - `Addin/PhilsDesignTools/PhilsDesignTools.py`
+- Build outputs confirmed:
+  - `Addin/tools/dist/fusion360-addins-installer-pdt-1.0.10-bom-1.03.zip`
+  - `Addin/tools/dist/fusion360-addins-installer-pdt-1.0.10-bom-1.03.msi`
+  - `PhilsDesignTools-1.0.10.zip`
