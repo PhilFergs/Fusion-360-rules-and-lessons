@@ -3,6 +3,10 @@
 Each upload should add a dated entry here and use the deploy script to back up
 the previous add-in folder before overwriting files in the Fusion add-ins path.
 
+## 2026-06-03 20:46
+- Branch: feature/in-development
+- Summary: Fixed Set Component Descriptions crash risk by keeping body-profile geometry as the primary classifier, adding optional name fallback only after geometry fails, keeping simplified material assignment opt-in, and bumped PhilsDesignTools version to 1.0.12.
+
 ## 2026-06-03 19:35
 - Branch: feature/in-development
 - Summary: Added Move Preserve Position for reparenting occurrences without model-space drift, hardened Normalize Component Structure nested reparent transform restoration, and bumped PhilsDesignTools version to 1.0.11.

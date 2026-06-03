@@ -15,6 +15,10 @@ RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 SELECTION_INPUT_ID = "set_component_descriptions_selection"
 ALL_DESIGN_INPUT_ID = "set_component_descriptions_all_design"
 OVERWRITE_INPUT_ID = "set_component_descriptions_overwrite"
+NAME_FALLBACK_INPUT_ID = "set_component_descriptions_name_fallback"
+SET_MATERIALS_INPUT_ID = "set_component_descriptions_set_materials"
+
+DEBUG_SET_DESCRIPTIONS = True
 
 TOL = 1e-6
 ANGLE_TOL = 1e-3
@@ -24,6 +28,11 @@ DIM_TOL_MM = 1.0
 FLAT_BAR_MIN_LENGTH_RATIO = 3.0
 FLAT_BAR_MAX_WIDTH_MM = 200.0
 PURLIN_LIP_MAX_RATIO = 0.85
+
+
+def _dbg(message):
+    if DEBUG_SET_DESCRIPTIONS:
+        logger.log(f"SET_DESC: {message}")
 
 
 class SetComponentDescriptionsCreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -75,6 +84,20 @@ class SetComponentDescriptionsCreatedHandler(adsk.core.CommandCreatedEventHandle
                 "",
                 True,
             )
+            inputs.addBoolValueInput(
+                NAME_FALLBACK_INPUT_ID,
+                "Use name fallback",
+                True,
+                "",
+                False,
+            )
+            inputs.addBoolValueInput(
+                SET_MATERIALS_INPUT_ID,
+                "Set simplified materials",
+                True,
+                "",
+                False,
+            )
 
             on_exec = SetComponentDescriptionsExecuteHandler()
             cmd.execute.add(on_exec)
@@ -113,6 +136,20 @@ def _safe_token(entity):
     except:
         pass
     return f"id:{id(entity)}"
+
+
+def _component_name(comp):
+    try:
+        return comp.name or "<unnamed>"
+    except:
+        return "<unnamed>"
+
+
+def _body_name(body):
+    try:
+        return body.name or "<unnamed body>"
+    except:
+        return "<unnamed body>"
 
 
 def _all_components(design):
@@ -892,6 +929,42 @@ def _description_from_solid_rect(u_levels, v_levels, length_mm):
     return f"PLATE {_clean_numeric(thickness)}"
 
 
+def _description_from_family_and_size(family, size_text):
+    if not family or not size_text:
+        return None
+    family = family.upper().replace(" ", "")
+    triplet = _find_size_triplet(size_text)
+    pair = _find_size_pair(size_text)
+
+    if family in ("SHS", "RHS", "EA") and triplet:
+        return f"{family} {_fmt_dims(*triplet)}"
+    if family == "CHS" and pair:
+        return f"CHS {_fmt_dims(*pair)}"
+    if family == "UB" and pair:
+        return f"UB {_fmt_dims(*pair)}"
+    if family == "PFC" and pair:
+        return f"PFC {_fmt_dims(*pair)}"
+    if family in ("C", "CPURLIN") and triplet:
+        return f"C PURLIN {_fmt_dims(*triplet)}"
+    return None
+
+
+def _description_from_dimension_only_text(text):
+    triplet = _find_size_triplet(text)
+    if not triplet:
+        return None
+    try:
+        a = float(triplet[0])
+        b = float(triplet[1])
+        c = float(triplet[2])
+    except:
+        return None
+    if a <= 0 or b <= 0 or c <= 0:
+        return None
+    family = "SHS" if abs(a - b) <= DIM_TOL_MM else "RHS"
+    return f"{family} {_fmt_dims(*triplet)}"
+
+
 def _description_from_body_geometry(body, um):
     if not body or not um:
         return None
@@ -948,16 +1021,76 @@ def _description_from_body_geometry(body, um):
 
 
 def _description_from_text(text):
-    # Name-driven profile recognition has been retired.
+    norm = _normalise_text(text)
+    if not norm:
+        return None
+
+    family_patterns = [
+        ("C PURLIN", r"\bC\s*PURLIN\b"),
+        ("SHS", r"\bSHS\d*\b"),
+        ("RHS", r"\bRHS\d*\b"),
+        ("CHS", r"\bCHS\d*\b"),
+        ("EA", r"\bEA\d*\b"),
+        ("UB", r"\bUB\d*\b"),
+        ("PFC", r"\bPFC\d*\b"),
+    ]
+    for family, pattern in family_patterns:
+        if re.search(pattern, norm):
+            desc = _description_from_family_and_size(family, norm)
+            if desc:
+                return desc
+
+    flat_match = re.search(r"\b(?:FLAT\s*BAR|FB)\b", norm)
+    if flat_match:
+        pair = _find_size_pair(norm)
+        if pair:
+            return f"FLAT BAR {_fmt_dims(*pair)}"
+
+    plate_match = re.search(r"\b(?:PLATE|PL)\b", norm)
+    if plate_match:
+        p_thickness = re.search(r"\bP\s*(\d+(?:\.\d+)?)\b", norm)
+        if p_thickness:
+            return f"PLATE {_clean_numeric(p_thickness.group(1))}"
+        triplet = _find_size_triplet(norm)
+        if triplet:
+            return f"PLATE {_clean_numeric(triplet[-1])}"
+        pair = _find_size_pair(norm)
+        if pair:
+            try:
+                possible_thickness = float(pair[-1])
+            except:
+                possible_thickness = None
+        else:
+            possible_thickness = None
+        if pair and possible_thickness is not None and possible_thickness <= 50.0:
+            return f"PLATE {_clean_numeric(pair[-1])}"
+        if pair:
+            return None
+
+    # Generated member names often carry only the section dimensions, for example
+    # RB4-150x100x3. In that case classify square as SHS and rectangular as RHS.
+    return _description_from_dimension_only_text(norm)
+
+
+def _description_from_names(comp):
+    for text in _name_candidates(comp):
+        desc = _description_from_text(text)
+        if desc:
+            return desc
     return None
 
 
-def _build_description(comp, um):
+def _build_description(comp, um, use_name_fallback):
     body = _single_body(comp)
     if body:
         desc = _description_from_body_geometry(body, um)
         if desc:
             return desc, "geometry"
+
+    if use_name_fallback:
+        desc = _description_from_names(comp)
+        if desc:
+            return desc, "name"
 
     return None, None
 
@@ -1086,9 +1219,13 @@ def _execute(args):
     sel_input = adsk.core.SelectionCommandInput.cast(inputs.itemById(SELECTION_INPUT_ID))
     all_design_in = adsk.core.BoolValueCommandInput.cast(inputs.itemById(ALL_DESIGN_INPUT_ID))
     overwrite_in = adsk.core.BoolValueCommandInput.cast(inputs.itemById(OVERWRITE_INPUT_ID))
+    name_fallback_in = adsk.core.BoolValueCommandInput.cast(inputs.itemById(NAME_FALLBACK_INPUT_ID))
+    set_materials_in = adsk.core.BoolValueCommandInput.cast(inputs.itemById(SET_MATERIALS_INPUT_ID))
 
     use_whole_design = all_design_in.value if all_design_in else True
     overwrite_existing = overwrite_in.value if overwrite_in else True
+    use_name_fallback = name_fallback_in.value if name_fallback_in else False
+    set_materials = set_materials_in.value if set_materials_in else False
 
     if use_whole_design:
         components = _all_components(design)
@@ -1107,6 +1244,7 @@ def _execute(args):
         "materials_set": 0,
         "material_already_matched": 0,
         "material_failed": 0,
+        "name_recognized": 0,
         "geometry_recognized": 0,
         "non_leaf_skipped": 0,
         "unknown_profile": 0,
@@ -1116,30 +1254,59 @@ def _execute(args):
     unknown = []
     errors = []
 
+    logger.log(
+        f"SET_DESC: execute components={len(components)} whole_design={use_whole_design} "
+        + f"overwrite={overwrite_existing} name_fallback={use_name_fallback} "
+        + f"set_materials={set_materials}"
+    )
+
     for comp in components:
         stats["components_scanned"] += 1
+        comp_name = _component_name(comp)
+
+        _dbg(
+            f"component start index={stats['components_scanned']} name='{comp_name}' "
+            + f"body_count={_direct_body_count(comp)} child_count={_direct_child_occurrence_count(comp)}"
+        )
 
         if _is_referenced_component(comp):
             stats["referenced_skipped"] += 1
+            _dbg(f"component skipped referenced name='{comp_name}'")
             continue
 
         if not _is_leaf_target_component(comp):
             stats["non_leaf_skipped"] += 1
+            _dbg(f"component skipped non_leaf name='{comp_name}'")
             continue
 
-        desc, source = _build_description(comp, design.unitsManager)
+        try:
+            desc, source = _build_description(comp, design.unitsManager, use_name_fallback)
+        except Exception as ex:
+            stats["errors"] += 1
+            errors.append(f'Failed to classify "{comp_name}": {ex}')
+            logger.log(
+                f"SET_DESC: classify failed name='{comp_name}' "
+                + f"body='{_body_name(_single_body(comp))}': {ex}"
+            )
+            continue
+
         if not desc:
             stats["unknown_profile"] += 1
-            try:
-                unknown.append(comp.name)
-            except:
-                unknown.append("<unnamed>")
+            unknown.append(comp_name)
+            _dbg(f"component unknown name='{comp_name}'")
             continue
 
+        if source == "name":
+            stats["name_recognized"] += 1
         if source == "geometry":
             stats["geometry_recognized"] += 1
 
         body = _single_body(comp)
+        _dbg(
+            f"component classified name='{comp_name}' desc='{desc}' source='{source}' "
+            + f"body='{_body_name(body)}'"
+        )
+
         current = ""
         try:
             current = comp.description or ""
@@ -1158,14 +1325,11 @@ def _execute(args):
                 stats["descriptions_set"] += 1
             except Exception as ex:
                 stats["errors"] += 1
-                try:
-                    comp_name = comp.name
-                except:
-                    comp_name = "<unnamed>"
                 errors.append(f'Failed to set description on "{comp_name}": {ex}')
+                logger.log(f"SET_DESC: description set failed name='{comp_name}' desc='{desc}': {ex}")
 
         target_material_name = _material_name_from_description(desc)
-        if body and target_material_name:
+        if set_materials and body and target_material_name:
             current_material_name = _body_material_name(body)
             if current_material_name == target_material_name:
                 stats["material_already_matched"] += 1
@@ -1179,19 +1343,19 @@ def _execute(args):
                     except Exception as ex:
                         stats["material_failed"] += 1
                         stats["errors"] += 1
-                        try:
-                            comp_name = comp.name
-                        except:
-                            comp_name = "<unnamed>"
                         errors.append(f'Failed to set material on "{comp_name}": {ex}')
+                        logger.log(
+                            f"SET_DESC: material set failed name='{comp_name}' "
+                            + f"material='{target_material_name}': {ex}"
+                        )
                 elif not desc_blocked:
                     stats["material_failed"] += 1
                     stats["errors"] += 1
-                    try:
-                        comp_name = comp.name
-                    except:
-                        comp_name = "<unnamed>"
                     errors.append(f'Failed to create material "{target_material_name}" for "{comp_name}".')
+                    logger.log(
+                        f"SET_DESC: material create failed name='{comp_name}' "
+                        + f"material='{target_material_name}'"
+                    )
 
     logger.log_command(CMD_NAME, dict(stats))
 
@@ -1204,6 +1368,7 @@ def _execute(args):
         f"Existing kept: {stats['existing_kept']}",
         f"Materials set: {stats['materials_set']}",
         f"Material already matched: {stats['material_already_matched']}",
+        f"Recognised by name: {stats['name_recognized']}",
         f"Recognised by geometry: {stats['geometry_recognized']}",
         f"Non-leaf skipped: {stats['non_leaf_skipped']}",
         f"Unknown profile: {stats['unknown_profile']}",

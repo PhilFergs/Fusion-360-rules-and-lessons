@@ -20,6 +20,7 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Normalize Component Structure: switched the post-reparent transform restore to root-level `transformOccurrences` first, with `transform2`/`transform` as fallback, so nested moved occurrences are restored in root/model space.
 - Added Move Preserve Position command for reparenting selected occurrences into a target parent while restoring root/model-space transforms via `transformOccurrences`.
 - Added MOVE_PRESERVE logging for source/target occurrence context, saved matrices, restore route, and skipped linked/read-only moves.
+- Set Component Descriptions: after a Fusion hard crash, kept body-profile geometry as the primary classifier, added optional name fallback only after geometry fails, and added `SET_DESC:` per-component progress logs before geometry/material API calls.
 
 ## 2026-05-11
 - Stub Arms To Wall: reintroduced `Top line angle` narrowly after rolling back the first attempt; `0 deg` leaves the known-good shared wall endpoint untouched.
