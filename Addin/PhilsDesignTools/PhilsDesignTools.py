@@ -43,6 +43,7 @@ def run(context):
         import smg_remove_length_names as remove_length_names_mod
         import smg_bulk_replace_components as bulk_replace_components_mod
         import smg_normalize_component_structure as normalize_component_structure_mod
+        import smg_move_preserve_position as move_preserve_position_mod
         import smg_set_component_descriptions as set_component_descriptions_mod
         import smg_logger as logger
 
@@ -117,6 +118,7 @@ def run(context):
             "PhilsDesignTools_RemoveLengthNames",
             "PhilsDesignTools_BulkReplaceComponents",
             "PhilsDesignTools_NormalizeComponentStructure",
+            "PhilsDesignTools_MovePreservePosition",
             "PhilsDesignTools_SetComponentDescriptions",
         ]
 
@@ -156,6 +158,7 @@ def run(context):
         remove_length_names_mod.register(ui, panel)
         bulk_replace_components_mod.register(ui, panel)
         normalize_component_structure_mod.register(ui, panel)
+        move_preserve_position_mod.register(ui, panel)
         set_component_descriptions_mod.register(ui, panel)
 
     except:
@@ -196,6 +199,7 @@ def stop(context):
             "PhilsDesignTools_RemoveLengthNames",
             "PhilsDesignTools_BulkReplaceComponents",
             "PhilsDesignTools_NormalizeComponentStructure",
+            "PhilsDesignTools_MovePreservePosition",
             "PhilsDesignTools_SetComponentDescriptions",
         ]
 

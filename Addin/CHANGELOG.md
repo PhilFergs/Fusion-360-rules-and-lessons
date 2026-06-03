@@ -37,6 +37,16 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Normalize Component Structure: normalize mixed and multi-body components by moving direct bodies into child components and aligning single-body names to the parent component.
 - Set Component Descriptions: populate Fusion's Description field from recognised Australian steel profile name patterns for SHS, RHS, CHS, EA, flat bar, and plate members.
 ### Changed
+- Normalize Component Structure: fixed body conversion and single-body rename handling for nested assembly contexts by resolving bodies through occurrence context and moving them into explicit child components, avoiding Fusion `findObjectPath` internal validation errors.
+- Normalize Component Structure: generic single-body names such as `Body3` now use the parent component name for the new child component/body instead of falling through to Fusion default names like `Component409`.
+- Normalize Component Structure: mixed parent components now become assembly wrappers such as `RB6-AS`, while moved member bodies become child components/bodies named from the original member profile such as `RB6-100x100x3`.
+- Normalize Component Structure: repaired browser names by renaming occurrences directly when Fusion rejects component asset renames, so repaired wrappers and moved child members show the intended names in the Fusion tree.
+- Normalize Component Structure: fixed nested assembly browser renames by resolving native occurrence/component objects before setting names.
+- Normalize Component Structure: wrapper rebuilds and body conversions now abort before moving children/bodies if Fusion refuses the intended component name, preventing new default `Component###` wrappers from replacing named parents.
+- Normalize Component Structure: new child and wrapper components are now named at the design root before being moved into nested assemblies, avoiding Fusion rename failures on freshly-created nested `Component###` assets.
+- Normalize Component Structure: moved child components and rebuilt wrappers now restore their occurrence transform after reparenting so they stay in the same model-space position.
+- Normalize Component Structure: nested reparent moves now restore position through root-level `transformOccurrences` before falling back to direct occurrence transform setters.
+- Move Preserve Position: added a command to reparent selected component occurrences into a target parent occurrence while preserving their root/model-space position for hybrid/direct-modeling assemblies.
 - Set Component Descriptions: now falls back to body-geometry recognition for common generated leaf members (for example renamed EA/SHS/RHS parts whose names no longer include the section family token).
 - Set Component Descriptions: now also assigns simplified design-local material names such as `Steel - SHS`, `Steel - RHS`, and `Steel - EA` to recognised single-body members.
 - Set Component Descriptions: plate descriptions are no longer inferred from `PL` / `PLATE` naming text and now come from the actual model geometry only.

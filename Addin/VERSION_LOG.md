@@ -3,6 +3,10 @@
 Each upload should add a dated entry here and use the deploy script to back up
 the previous add-in folder before overwriting files in the Fusion add-ins path.
 
+## 2026-06-03 19:35
+- Branch: feature/in-development
+- Summary: Added Move Preserve Position for reparenting occurrences without model-space drift, hardened Normalize Component Structure nested reparent transform restoration, and bumped PhilsDesignTools version to 1.0.11.
+
 ## 2026-05-26 10:10
 - Branch: feature/in-development
 - Summary: Refined the live Stub Arms To Wall behavior to match the current installed version, including the max pair angle control and the latest stub-arm pair generation adjustments, and bumped PhilsDesignTools version to 1.0.10.

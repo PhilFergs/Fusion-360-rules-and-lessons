@@ -6,6 +6,21 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Add a brief entry to this DEVLOG for each change set.
 - Update CHANGELOG.md under Unreleased for user-facing changes.
 
+## 2026-06-03
+- Normalize Component Structure: changed body-to-child-component conversion to use occurrence-context proxies plus explicit child occurrences and `moveToComponent`, avoiding Fusion `findObjectPath` internal validation errors from native body handles.
+- Added `NORMALIZE:` debug logging for component context, conversion attempts, skipped linked/read-only bodies, and conversion/rename failures.
+- Normalize Component Structure: corrected generic single-body fallback naming so converted bodies like `Body3` use the source parent component name, and carry that intended name through the post-conversion body alignment pass.
+- Normalize Component Structure: split mixed-component naming into assembly wrapper and member leaf names, e.g. parent `RB6-100x100x3` becomes `RB6-AS` while the moved child component/body keeps `RB6-100x100x3`; added repair logic for default `Component###` leaf components and already-moved mixed parents.
+- Normalize Component Structure: live log showed Fusion rejecting `Component.name` updates with `renameObject` internal validation errors, so rename repair now sets `Occurrence.name` first for the browser tree and only falls back to component names when needed.
+- Normalize Component Structure: occurrence rename attempts on assembly-context proxies reported no setter, so rename repair now resolves and renames native occurrence/component objects and compares leaf browser names from full paths.
+- Normalize Component Structure: because Fusion still blocks renaming components that already contain linked children, wrapper repair now creates a new `-AS` sibling wrapper, moves the existing child occurrences into it, deletes the old blocked wrapper, then refreshes contexts before leaf body/component repair.
+- Normalize Component Structure: guarded wrapper rebuilds and body conversion so the command aborts and cleans up the empty new occurrence if Fusion refuses the intended component name, preventing children/bodies being moved into default `Component###` wrappers.
+- Normalize Component Structure: changed new child/wrapper creation to name components at the design root first, then move the named empty occurrence into the nested assembly context before moving bodies or child occurrences.
+- Normalize Component Structure: capture and restore occurrence `transform2` around reparent moves so rebuilt wrappers and moved children keep their model-space position after Fusion changes their parent component.
+- Normalize Component Structure: switched the post-reparent transform restore to root-level `transformOccurrences` first, with `transform2`/`transform` as fallback, so nested moved occurrences are restored in root/model space.
+- Added Move Preserve Position command for reparenting selected occurrences into a target parent while restoring root/model-space transforms via `transformOccurrences`.
+- Added MOVE_PRESERVE logging for source/target occurrence context, saved matrices, restore route, and skipped linked/read-only moves.
+
 ## 2026-05-11
 - Stub Arms To Wall: reintroduced `Top line angle` narrowly after rolling back the first attempt; `0 deg` leaves the known-good shared wall endpoint untouched.
 - The new top-angle adjustment moves the shared wall endpoint for both lines along the column axis, preserving the existing paired brace shape while allowing the top FlatBar angle to be tuned.
