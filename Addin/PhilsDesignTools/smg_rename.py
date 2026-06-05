@@ -235,49 +235,17 @@ class RenameExecuteHandler(adsk.core.CommandEventHandler):
                     idx_label = f"{int(round(current_index))}"
                 new_name = f"{prefix}{idx_label}-{size_suffix}"
 
-                renamed = False
-                old_label = ""
-                comp_for_bodies = None
-
-                try:
-                    # Try renaming occurrence first.
-                    try:
-                        old_label = occ.name
-                        occ.name = new_name
-                        comp_for_bodies = occ.component
-                        renamed = True
-                        log_lines.append(f'{old_label}  ->  {new_name}  (occurrence)')
-                    except Exception:
-                        comp = occ.component
-                        if comp:
-                            old_label = comp.name
-                            comp.name = new_name
-                            comp_for_bodies = comp
-                            renamed = True
-                            log_lines.append(f'{old_label}  ->  {new_name}  (component)')
-
-                    if not renamed:
-                        safe_name = ""
-                        try:
-                            safe_name = occ.name
-                        except Exception:
-                            safe_name = "<unknown occurrence>"
-                        log_lines.append(
-                            f'FAILED to rename occurrence "{safe_name}" (index {current_index}).'
-                        )
-
-                    # Also rename all bodies in that component to match.
-                    if comp_for_bodies:
-                        _rename_component_bodies(comp_for_bodies, new_name)
-
-                except Exception as ex:
-                    safe_name = ""
-                    try:
-                        safe_name = occ.name
-                    except Exception:
-                        safe_name = "<unknown occurrence>"
+                result = _rename_member_occurrence(occ, new_name)
+                if result["renamed"]:
                     log_lines.append(
-                        f'ERROR renaming \"{safe_name}\" (index {current_index}): {ex}'
+                        f'{result["old_name"]}  ->  {new_name}  ({result["route"]})'
+                    )
+                    if result["component"]:
+                        _rename_component_bodies(result["component"], new_name)
+                else:
+                    log_lines.append(
+                        f'FAILED to rename "{result["old_name"]}" '
+                        + f'(index {idx_label}): {result["message"]}'
                     )
 
                 current_index = round(current_index + step, 1) if use_decimal else current_index + 1
@@ -506,6 +474,153 @@ def _safe_name(entity):
         return ""
 
 
+def _native_object(entity):
+    if not entity:
+        return None
+    try:
+        native = entity.nativeObject
+        if native and native != entity:
+            return native
+    except:
+        pass
+    return None
+
+
+def _strip_occurrence_suffix(name):
+    return re.sub(r":\d+$", "", str(name or "").strip())
+
+
+def _browser_leaf_name(name):
+    leaf = str(name or "").strip().split("+")[-1]
+    return _strip_occurrence_suffix(leaf)
+
+
+def _compact_exception(ex):
+    text = str(ex or "").replace("\r", " ").replace("\n", " ").strip()
+    if "InternalValidationError" in text or "renameObject" in text:
+        return "Fusion blocked the internal rename route"
+    return text[:180] if text else "rename failed"
+
+
+def _candidate_objects(entity, label):
+    candidates = []
+    native = _native_object(entity)
+    if native:
+        candidates.append((f"native {label}", native))
+    if entity:
+        candidates.append((label, entity))
+    return candidates
+
+
+def _is_referenced_component(comp):
+    if not comp:
+        return False
+    for attr in ("isReferencedComponent", "isExternalReference"):
+        try:
+            if bool(getattr(comp, attr)):
+                return True
+        except:
+            pass
+    return False
+
+
+def _component_from_occurrence(occ):
+    try:
+        return occ.component
+    except:
+        return None
+
+
+def _rename_occurrence_route(occ, new_name):
+    failures = []
+    old_name = _safe_name(occ) or "<unknown occurrence>"
+
+    for route, candidate in _candidate_objects(occ, "occurrence"):
+        try:
+            current = _safe_name(candidate)
+            if current:
+                old_name = current
+            if _browser_leaf_name(current) != new_name:
+                candidate.name = new_name
+            logger.log(
+                f"BATCH_RENAME: occurrence rename ok route='{route}' "
+                + f"from='{current}' to='{new_name}'"
+            )
+            return True, old_name, route, ""
+        except Exception as ex:
+            msg = _compact_exception(ex)
+            failures.append(f"{route}: {msg}")
+            logger.log(
+                f"BATCH_RENAME: occurrence rename failed route='{route}' "
+                + f"from='{old_name}' to='{new_name}': {ex}"
+            )
+
+    return False, old_name, "occurrence", "; ".join(failures)
+
+
+def _rename_component_route(comp, new_name):
+    if not comp:
+        return False, "<unknown component>", "component", "no component found"
+    if _is_referenced_component(comp):
+        return False, _safe_name(comp) or "<linked component>", "component", "linked component"
+
+    failures = []
+    old_name = _safe_name(comp) or "<unknown component>"
+    for route, candidate in _candidate_objects(comp, "component"):
+        try:
+            current = _safe_name(candidate)
+            if current:
+                old_name = current
+            if current != new_name:
+                candidate.name = new_name
+            logger.log(
+                f"BATCH_RENAME: component rename ok route='{route}' "
+                + f"from='{current}' to='{new_name}'"
+            )
+            return True, old_name, route, ""
+        except Exception as ex:
+            msg = _compact_exception(ex)
+            failures.append(f"{route}: {msg}")
+            logger.log(
+                f"BATCH_RENAME: component rename failed route='{route}' "
+                + f"from='{old_name}' to='{new_name}': {ex}"
+            )
+
+    return False, old_name, "component", "; ".join(failures)
+
+
+def _rename_member_occurrence(occ, new_name):
+    occ_ok, old_name, route, message = _rename_occurrence_route(occ, new_name)
+    comp = _component_from_occurrence(occ)
+    if occ_ok:
+        return {
+            "renamed": True,
+            "old_name": old_name,
+            "route": route,
+            "component": comp,
+            "message": "",
+        }
+
+    comp_ok, comp_old_name, comp_route, comp_message = _rename_component_route(comp, new_name)
+    if comp_ok:
+        return {
+            "renamed": True,
+            "old_name": comp_old_name,
+            "route": comp_route,
+            "component": comp,
+            "message": "",
+        }
+
+    joined = "; ".join(part for part in (message, comp_message) if part)
+    return {
+        "renamed": False,
+        "old_name": old_name,
+        "route": "",
+        "component": comp,
+        "message": joined or "Fusion rejected both occurrence and component rename routes",
+    }
+
+
 def _next_needs_rename_label(used_names, counter):
     while True:
         label = f"needs rename {counter}"
@@ -560,21 +675,21 @@ def _apply_conflict_overwrite(conflicts, used_names, log_lines):
     for token, comp in comp_entities.items():
         new_name = comp_new_names[token]
         old_name = _safe_name(comp)
-        try:
-            comp.name = new_name
+        ok, route_old_name, route, message = _rename_component_route(comp, new_name)
+        if ok:
             _rename_component_bodies(comp, new_name)
-            log_lines.append(f'{old_name}  ->  {new_name}  (component)')
-        except Exception as ex:
-            log_lines.append(f'FAILED to rename component "{old_name}": {ex}')
+            log_lines.append(f'{route_old_name or old_name}  ->  {new_name}  ({route})')
+        else:
+            log_lines.append(f'FAILED to rename component "{old_name}": {message}')
 
     for token, occ in occ_entities.items():
         new_name = occ_new_names[token]
         old_name = _safe_name(occ)
-        try:
-            occ.name = new_name
-            log_lines.append(f'{old_name}  ->  {new_name}  (occurrence)')
-        except Exception as ex:
-            log_lines.append(f'FAILED to rename occurrence "{old_name}": {ex}')
+        ok, route_old_name, route, message = _rename_occurrence_route(occ, new_name)
+        if ok:
+            log_lines.append(f'{route_old_name or old_name}  ->  {new_name}  ({route})')
+        else:
+            log_lines.append(f'FAILED to rename occurrence "{old_name}": {message}')
 
 
 def _find_max_index_for_prefix(

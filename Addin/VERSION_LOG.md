@@ -3,6 +3,10 @@
 Each upload should add a dated entry here and use the deploy script to back up
 the previous add-in folder before overwriting files in the Fusion add-ins path.
 
+## 2026-06-05 13:20
+- Branch: feature/in-development
+- Summary: Hardened Hole Cut From Face for nested assembly target bodies, added default-off EA/SHS/RHS profile-name suffix toggles, set generated EA/SHS/RHS component descriptions at creation, hardened Fusion rename/sketch paths, and bumped PhilsDesignTools version to 1.0.13.
+
 ## 2026-06-03 20:46
 - Branch: feature/in-development
 - Summary: Fixed Set Component Descriptions crash risk by keeping body-profile geometry as the primary classifier, adding optional name fallback only after geometry fails, keeping simplified material assignment opt-in, and bumped PhilsDesignTools version to 1.0.12.

@@ -6,6 +6,15 @@ Ongoing development notes for the Phils Design Tools add-in.
 - Add a brief entry to this DEVLOG for each change set.
 - Update CHANGELOG.md under Unreleased for user-facing changes.
 
+## 2026-06-05
+- Batch Rename: replaced direct occurrence/component name assignment with native occurrence-first guarded rename helpers, so Fusion component-asset `renameObject` internal validation errors are logged but no longer break the batch result dialog.
+- Hole Cut From Face: added guarded sketch creation for nested target faces; the command now tries proxy/native face references and then a local construction-plane fallback instead of letting `addWithoutEdges(face)` throw `failed to get path to component`.
+- Hole Cut From Face: added a final root-component sketch/extrude route using the selected occurrence-context target body when target-component sketch creation is rejected by Fusion.
+- EA/SHS/RHS From Lines: added a persisted default-off profile suffix checkbox and passed it through the generation naming helpers.
+- EA/SHS/RHS generation: assigned profile descriptions during component creation using the same short output format as Set Component Descriptions.
+- Fusion update audit: hardened remaining high-risk direct component naming in EA/SHS/RHS generation, New Component Set, Remove Length From Names, and Stub Arms To Wall so browser occurrence names are attempted before component-definition asset names.
+- Fusion update audit: changed Stub Arms To Wall wall-centre sketch creation to try a plane reference before direct face sketching, matching the safer face-path pattern used elsewhere.
+
 ## 2026-06-03
 - Normalize Component Structure: changed body-to-child-component conversion to use occurrence-context proxies plus explicit child occurrences and `moveToComponent`, avoiding Fusion `findObjectPath` internal validation errors from native body handles.
 - Added `NORMALIZE:` debug logging for component context, conversion attempts, skipped linked/read-only bodies, and conversion/rename failures.

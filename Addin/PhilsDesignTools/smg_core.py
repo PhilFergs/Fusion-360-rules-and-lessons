@@ -63,6 +63,43 @@ def find_next_index(design, prefix: str) -> int:
     return max_idx + 1
 
 
+def set_occurrence_component_name(occ, comp, target_name: str) -> bool:
+    renamed = False
+    for entity in (occ, comp):
+        if entity is None:
+            continue
+        try:
+            if entity.name != target_name:
+                entity.name = target_name
+            renamed = True
+        except:
+            pass
+    return renamed
+
+
+def _clean_description_number(value):
+    try:
+        num = float(value)
+    except:
+        return str(value)
+    if abs(num - round(num)) < 1e-6:
+        return str(int(round(num)))
+    return f"{num:.1f}".rstrip("0").rstrip(".")
+
+
+def _profile_description(family, *dims):
+    return f"{family} " + " x ".join(_clean_description_number(dim) for dim in dims)
+
+
+def _set_component_description(comp, description):
+    if comp is None or not description:
+        return
+    try:
+        comp.description = description
+    except:
+        pass
+
+
 def create_orientation_matrix(line_mid, x_base, y_axis, z_base, angle_deg, offset_x_u):
     angle = math.radians(angle_deg)
     c = math.cos(angle)
@@ -97,7 +134,8 @@ def generate_ea_from_lines(lines,
                            flange_mm, thickness_mm, extra_mm,
                            hole_d_mm, hole_g_mm, fillet_mm,
                            angle_deg,
-                           holes_enabled=True):
+                           holes_enabled=True,
+                           include_profile_in_name=False):
     if not lines:
         ctx.ui().messageBox("Please select at least one sketch line.")
         return
@@ -113,7 +151,7 @@ def generate_ea_from_lines(lines,
         if _create_ea_for_line(design, root, um, line, next_idx,
                                flange_mm, thickness_mm, extra_mm,
                                hole_d_mm, hole_g_mm, fillet_mm,
-                               angle_deg, holes_enabled):
+                               angle_deg, holes_enabled, include_profile_in_name):
             created += 1
             next_idx += 1
 
@@ -123,7 +161,7 @@ def generate_ea_from_lines(lines,
 def _create_ea_for_line(design, root, um, sk_line, idx,
                         flange_mm, thickness_mm, extra_mm,
                         hole_d_mm, hole_g_mm, fillet_mm,
-                        angle_deg, holes_enabled):
+                        angle_deg, holes_enabled, include_profile_in_name):
     sp = sk_line.startSketchPoint.worldGeometry
     ep = sk_line.endSketchPoint.worldGeometry
     cc_len_u = sp.distanceTo(ep)
@@ -154,9 +192,15 @@ def _create_ea_for_line(design, root, um, sk_line, idx,
     occ = root.occurrences.addNewComponent(mat)
     comp = occ.component
 
-    comp.name = (
-        f"EA{idx}-"
-        f"{int(round(flange_mm))}x{int(round(flange_mm))}x{int(round(thickness_mm))}"
+    comp_name = f"EA{idx}"
+    if include_profile_in_name:
+        comp_name += (
+            f"-{int(round(flange_mm))}x{int(round(flange_mm))}x{int(round(thickness_mm))}"
+        )
+    set_occurrence_component_name(occ, comp, comp_name)
+    _set_component_description(
+        comp,
+        _profile_description("EA", flange_mm, flange_mm, thickness_mm),
     )
 
     body = _build_ea_geometry(design, comp, um, cc_len_u,
@@ -403,7 +447,8 @@ def _apply_rhs_corner_fillets(comp, body,
 
 def generate_shs_from_lines(lines,
                             size_mm, thickness_mm, extra_mm,
-                            angle_deg):
+                            angle_deg,
+                            include_profile_in_name=False):
     if not lines:
         ctx.ui().messageBox("Please select at least one sketch line.")
         return
@@ -417,7 +462,7 @@ def generate_shs_from_lines(lines,
     for line in lines:
         if _create_shs_for_line(design, root, um, line, next_idx,
                                 size_mm, thickness_mm, extra_mm,
-                                angle_deg):
+                                angle_deg, include_profile_in_name):
             created += 1
             next_idx += 1
 
@@ -426,7 +471,7 @@ def generate_shs_from_lines(lines,
 
 def _create_shs_for_line(design, root, um, sk_line, idx,
                          size_mm, thickness_mm, extra_mm,
-                         angle_deg):
+                         angle_deg, include_profile_in_name):
     sp = sk_line.startSketchPoint.worldGeometry
     ep = sk_line.endSketchPoint.worldGeometry
     cc_len_u = sp.distanceTo(ep)
@@ -455,9 +500,15 @@ def _create_shs_for_line(design, root, um, sk_line, idx,
     occ = root.occurrences.addNewComponent(mat)
     comp = occ.component
 
-    comp.name = (
-        f"SHS{idx}-"
-        f"{int(round(size_mm))}x{int(round(size_mm))}x{int(round(thickness_mm))}"
+    comp_name = f"SHS{idx}"
+    if include_profile_in_name:
+        comp_name += (
+            f"-{int(round(size_mm))}x{int(round(size_mm))}x{int(round(thickness_mm))}"
+        )
+    set_occurrence_component_name(occ, comp, comp_name)
+    _set_component_description(
+        comp,
+        _profile_description("SHS", size_mm, size_mm, thickness_mm),
     )
 
     body = _build_shs_geometry(design, comp, um, cc_len_u,
@@ -521,7 +572,8 @@ def _build_shs_geometry(design, comp, um, cc_len_u,
 
 def generate_rhs_from_lines(lines,
                             width_mm, depth_mm, thickness_mm, extra_mm,
-                            angle_deg):
+                            angle_deg,
+                            include_profile_in_name=False):
     if not lines:
         ctx.ui().messageBox("Please select at least one sketch line.")
         return
@@ -535,7 +587,7 @@ def generate_rhs_from_lines(lines,
     for line in lines:
         if _create_rhs_for_line(design, root, um, line, next_idx,
                                 width_mm, depth_mm, thickness_mm, extra_mm,
-                                angle_deg):
+                                angle_deg, include_profile_in_name):
             created += 1
             next_idx += 1
 
@@ -544,7 +596,7 @@ def generate_rhs_from_lines(lines,
 
 def _create_rhs_for_line(design, root, um, sk_line, idx,
                          width_mm, depth_mm, thickness_mm, extra_mm,
-                         angle_deg):
+                         angle_deg, include_profile_in_name):
     sp = sk_line.startSketchPoint.worldGeometry
     ep = sk_line.endSketchPoint.worldGeometry
     cc_len_u = sp.distanceTo(ep)
@@ -574,9 +626,15 @@ def _create_rhs_for_line(design, root, um, sk_line, idx,
     occ = root.occurrences.addNewComponent(mat)
     comp = occ.component
 
-    comp.name = (
-        f"RHS{idx}-"
-        f"{int(round(width_mm))}x{int(round(depth_mm))}x{int(round(thickness_mm))}"
+    comp_name = f"RHS{idx}"
+    if include_profile_in_name:
+        comp_name += (
+            f"-{int(round(width_mm))}x{int(round(depth_mm))}x{int(round(thickness_mm))}"
+        )
+    set_occurrence_component_name(occ, comp, comp_name)
+    _set_component_description(
+        comp,
+        _profile_description("RHS", width_mm, depth_mm, thickness_mm),
     )
 
     body = _build_rhs_geometry(design, comp, um, cc_len_u,

@@ -1,3 +1,228 @@
+# Installer Refresh For 1.0.13
+
+Date: 2026-06-05
+
+## Plan
+- [x] Confirm current PhilsDesignTools manifest version and installer build workflow
+- [x] Bump PhilsDesignTools version metadata for a fresh release package
+- [x] Add release notes for Hole Cut, profile-name toggles, generated descriptions, and Fusion API hardening
+- [x] Build fresh installer and standalone package artifacts
+- [x] Run syntax/package verification
+- [x] Commit and push the updated source plus artifacts on `feature/in-development`
+
+## Verification Notes
+- `gh` is not installed on this machine, so GitHub CLI auth/PR checks are unavailable; release will use normal `git` commit/push.
+- Syntax sweep passed:
+  - `py -3 -m py_compile` over all tracked `Addin/PhilsDesignTools/*.py`
+- Build outputs confirmed:
+  - `Addin/tools/dist/fusion360-addins-installer-pdt-1.0.13-bom-1.03.zip`
+  - `Addin/tools/dist/fusion360-addins-installer-pdt-1.0.13-bom-1.03.msi`
+  - `Addin/tools/dist/PhilsDesignTools-1.0.13.zip`
+
+# Generated Member Descriptions
+
+Date: 2026-06-05
+
+## Plan
+- [x] Inspect Set Component Descriptions output format for EA/SHS/RHS
+- [x] Back up generator core and task notes before edits
+- [x] Set generated EA/SHS/RHS component descriptions at creation
+- [x] Run syntax checks
+- [x] Mirror updated core file into the active Fusion add-in folder
+
+## Verification Notes
+- Target description format matches Set Component Descriptions: `EA 50 x 50 x 3`, `SHS 100 x 100 x 3`, `RHS 100 x 50 x 3`.
+- Repo syntax check passed:
+  - `py -3 -m py_compile Addin\PhilsDesignTools\smg_core.py Addin\PhilsDesignTools\smg_ea.py Addin\PhilsDesignTools\smg_shs.py Addin\PhilsDesignTools\smg_rhs.py`
+- Active installed syntax check passed:
+  - `py -3 -m py_compile` on active `smg_core.py`
+- Repo and active installed `smg_core.py` match by SHA-256:
+  - `42CB36E89B2F223E12066899BBA43BD05CB41F552FCAD3AFA3B8E6FEB43A6D33`
+
+# From Lines Profile Name Toggle
+
+Date: 2026-06-05
+
+## Plan
+- [x] Inspect EA/SHS/RHS command inputs and generated name builders
+- [x] Back up generator files and task notes before edits
+- [x] Add default-off profile-in-name toggles to EA/SHS/RHS From Lines
+- [x] Update core name generation to omit profile suffix by default
+- [x] Run syntax checks
+- [x] Mirror updated command files into the active Fusion add-in folder
+
+## Verification Notes
+- Target behavior: default names `EA186`, `SHS186`, `RHS186`; checkbox restores names like `EA186-50x50x3`.
+- Repo syntax check passed:
+  - `py -3 -m py_compile Addin\PhilsDesignTools\smg_core.py Addin\PhilsDesignTools\smg_ea.py Addin\PhilsDesignTools\smg_shs.py Addin\PhilsDesignTools\smg_rhs.py`
+- Active installed syntax check passed on the same four files.
+- Repo and active installed copies match by SHA-256:
+  - `smg_core.py`: `87484487146CD42849B022878ED1F64DF2B40169B375B864E71B35C002EF6737`
+  - `smg_ea.py`: `364605C54725F8360572EFDDCB4C831C96FA21B614FC8C8BDB2DAC7FF92F8CD0`
+  - `smg_shs.py`: `45B8DEFC49C0A00C40C35777466D278D435584ABB652A18A69455EB9EBE60FDF`
+  - `smg_rhs.py`: `8E110C7CB1C93D037BB68F699C05F1153501617CB17CD21B7A85552949619E13`
+
+# Hole Cut From Face Root Sketch Fallback
+
+Date: 2026-06-05
+
+## Plan
+- [x] Inspect active Fusion log after origin-plane proxy fallback
+- [x] Back up Hole Cut From Face and task notes before edits
+- [x] Add root-component sketch/extrude fallback using the selected occurrence-context body
+- [x] Run syntax checks
+- [x] Mirror updated command into the active Fusion add-in folder
+
+## Verification Notes
+- Active log showed even the origin-plane proxy route failed with `InternalValidationError : targetComp`, so the fallback now avoids target-component sketch creation entirely.
+- Repo syntax check passed:
+  - `py -3 -m py_compile Addin\PhilsDesignTools\smg_holecut.py`
+- Active installed syntax check passed:
+  - `py -3 -m py_compile` on active `smg_holecut.py`
+- Repo and active installed copies match by SHA-256:
+  - `8C450F99D223F44D832484CF7E11D57FDD87A5A8DADE8C3EF92FBE1FE3BD6F32`
+
+# Hole Cut From Face Origin Plane Proxy Fallback
+
+Date: 2026-06-05
+
+## Plan
+- [x] Inspect active Fusion log for the continued nested sketch path failure
+- [x] Back up Hole Cut From Face and task notes before edits
+- [x] Try occurrence-context proxies for built-in origin-plane sketch fallback
+- [x] Run syntax checks
+- [x] Mirror updated command into the active Fusion add-in folder
+
+## Verification Notes
+- Active log showed native face, face proxy, and native origin-plane sketch creation all failed in the nested target path with `targetComp` / `failed to get path to component`.
+- Repo syntax check passed:
+  - `py -3 -m py_compile Addin\PhilsDesignTools\smg_holecut.py`
+- Active installed syntax check passed:
+  - `py -3 -m py_compile` on active `smg_holecut.py`
+- Repo and active installed copies match by SHA-256:
+  - `6CC168EBFC2239A9F9CB1FF3B02CB06F1EB332002659C4C33FD7A01438716328`
+
+# Hole Cut From Face Fusion Object Truthiness Fix
+
+Date: 2026-06-05
+
+## Plan
+- [x] Inspect active Fusion log for the continued skipped hole case
+- [x] Back up Hole Cut From Face and task notes before edits
+- [x] Replace sketch fallback truthiness checks with explicit `is not None`
+- [x] Run syntax checks
+- [x] Mirror updated command into the active Fusion add-in folder
+
+## Verification Notes
+- Active log showed the standard origin-plane fallback was selected, then the command continued to construction-plane fallback without any standard-plane sketch failure log. This indicates a valid Fusion API object or sketch may have evaluated false in Python.
+- Repo syntax check passed:
+  - `py -3 -m py_compile Addin\PhilsDesignTools\smg_holecut.py`
+- Active installed syntax check passed:
+  - `py -3 -m py_compile` on active `smg_holecut.py`
+- Repo and active installed copies match by SHA-256:
+  - `350AC429169F6579B28F598753065F0C2DF6817B01F6F6693ADBEF63501F55AE`
+
+# Hole Cut From Face Origin Plane Fallback
+
+Date: 2026-06-05
+
+## Plan
+- [x] Inspect active Fusion log for the skipped hole case
+- [x] Back up Hole Cut From Face and task notes before edits
+- [x] Add a built-in origin-plane sketch fallback for axis-aligned nested cuts
+- [x] Run syntax checks
+- [x] Mirror updated command into the active Fusion add-in folder
+
+## Verification Notes
+- Active log showed nested target face sketch creation fell through to construction-plane creation, then `ConstructionPlanes.add` failed with Fusion internal validation errors.
+- Repo syntax check passed:
+  - `py -3 -m py_compile Addin\PhilsDesignTools\smg_holecut.py`
+- Active installed syntax check passed:
+  - `py -3 -m py_compile` on active `smg_holecut.py`
+- Repo and active installed copies match by SHA-256:
+  - `6084F80A629E4FBAE16EDF5887AE969A1FE8D168F6FCBFECA003A19F9A20357B`
+
+# Fusion Update Fragility Audit
+
+Date: 2026-06-05
+
+## Plan
+- [x] Run syntax sweep across all PhilsDesignTools Python modules
+- [x] Search for high-risk Fusion API patterns: direct component renames, nested face sketch creation, `addWithoutEdges`, `moveToComponent`, native/proxy context use, and deprecated angle-unit access
+- [x] Harden low-risk direct rename paths in member generation and cleanup tools
+- [x] Harden remaining stub-arm face sketch path
+- [x] Mirror audited command files into active Fusion add-in folder
+- [x] Run live syntax/hash verification
+
+## Verification Notes
+- Backups created with stamp `20260605-102847`.
+- Initial full syntax sweep passed:
+  - `py -3 -m py_compile` over all tracked `Addin/PhilsDesignTools/*.py`
+- Preventative hardening applied:
+  - EA/SHS/RHS generators now name the occurrence first and component definition second.
+  - New Component Set now names occurrence/component through a guarded helper and reports naming issues without crashing.
+  - Remove Length From Names now renames matching occurrences plus component definitions through guarded native/object routes.
+  - Stub Arms To Wall now finds the `Stub arm lines` container by occurrence or component name and names new containers through guarded occurrence/component routes.
+  - Stub Arms To Wall wall-centre sketch creation now tries a plane reference before direct face sketch fallback.
+- Active add-in backups created with stamp `20260605-103216` for:
+  - `smg_rename.py`
+  - `smg_holecut.py`
+  - `smg_component_set.py`
+  - `smg_core.py`
+  - `smg_remove_length_names.py`
+  - `smg_stub_arms.py`
+- Final verification passed:
+  - Full repo `py_compile` sweep over all tracked `Addin/PhilsDesignTools/*.py`
+  - Live `py_compile` over the six deployed files
+  - All six deployed files match repo copies by SHA-256.
+
+# Hole Cut From Face Nested Face Sketch Fix
+
+Date: 2026-06-05
+
+## Plan
+- [x] Back up Hole Cut From Face and notes before edits
+- [x] Add guarded face/proxy sketch creation
+- [x] Add construction-plane sketch fallback for Fusion face path failures
+- [x] Run syntax checks
+- [x] Mirror updated command into the active Fusion add-in folder
+
+## Verification Notes
+- Backups created with stamp `20260605-101742`.
+- Initial syntax check passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_holecut.py`
+- Final syntax checks passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_holecut.py Addin/PhilsDesignTools/PhilsDesignTools.py`
+  - `py -3 -m py_compile` on the active installed `smg_holecut.py`
+- Active add-in backup created:
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_holecut.py.bak-20260605-101951`
+- Repo and active installed copies of `smg_holecut.py` match by SHA-256.
+
+# Batch Rename Component Asset Rename Fix
+
+Date: 2026-06-05
+
+## Plan
+- [x] Back up Batch Rename and task notes before edits
+- [x] Replace direct rename fallback with guarded native occurrence/component rename helpers
+- [x] Update conflict-overwrite rename routes to use the same guarded helpers
+- [x] Run syntax checks
+- [x] Mirror updated command into the active Fusion add-in folder
+
+## Verification Notes
+- Backups created:
+  - `Addin/PhilsDesignTools/smg_rename.py.bak-20260605-101103`
+  - `tasks/todo.md.bak-20260605-101103`
+  - Documentation backups with stamp `20260605-101300`
+- Initial syntax check passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_rename.py`
+- Final syntax checks passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_rename.py Addin/PhilsDesignTools/PhilsDesignTools.py`
+  - `py -3 -m py_compile` on the active installed `smg_rename.py`
+- Active add-in backup created:
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_rename.py.bak-20260605-101357`
+- Repo and active installed copies of `smg_rename.py` match by SHA-256.
+
 # Stub Arms Angle Regression Isolation
 
 Date: 2026-05-11

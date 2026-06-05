@@ -24,6 +24,88 @@ def _strip_length_segment(name: str) -> str:
     return LENGTH_SEGMENT_RE.sub("-", name)
 
 
+def _compact_exception(ex):
+    text = str(ex or "").replace("\r", " ").replace("\n", " ").strip()
+    if "InternalValidationError" in text or "renameObject" in text:
+        return "Fusion blocked the internal rename route"
+    return text[:180] if text else "rename failed"
+
+
+def _native_object(entity):
+    if not entity:
+        return None
+    try:
+        native = entity.nativeObject
+        if native and native != entity:
+            return native
+    except:
+        pass
+    return None
+
+
+def _candidate_objects(entity, label):
+    candidates = []
+    native = _native_object(entity)
+    if native:
+        candidates.append((f"native {label}", native))
+    if entity:
+        candidates.append((label, entity))
+    return candidates
+
+
+def _rename_entity(entity, new_name, label):
+    old_name = ""
+    failures = []
+    for route, candidate in _candidate_objects(entity, label):
+        try:
+            current = candidate.name or ""
+            if current:
+                old_name = current
+            if current != new_name:
+                candidate.name = new_name
+            logger.log(f"{CMD_NAME}: rename ok route='{route}' from='{current}' to='{new_name}'")
+            return True, old_name, ""
+        except Exception as ex:
+            failures.append(f"{route}: {_compact_exception(ex)}")
+            logger.log(f"{CMD_NAME}: rename failed route='{route}' target='{new_name}': {ex}")
+    return False, old_name, "; ".join(failures)
+
+
+def _component_occurrences(design, comp):
+    out = []
+    if not design or not comp:
+        return out
+    try:
+        for occ in design.rootComponent.allOccurrences:
+            try:
+                if occ.component == comp:
+                    out.append(occ)
+            except:
+                continue
+    except:
+        pass
+    return out
+
+
+def _rename_component_or_occurrences(design, comp, new_name):
+    old_name = comp.name or ""
+    renamed = False
+    failures = []
+
+    for occ in _component_occurrences(design, comp):
+        ok, _, message = _rename_entity(occ, new_name, "occurrence")
+        renamed = ok or renamed
+        if message:
+            failures.append(message)
+
+    ok, _, message = _rename_entity(comp, new_name, "component")
+    renamed = ok or renamed
+    if message:
+        failures.append(message)
+
+    return renamed, old_name, "; ".join(part for part in failures if part)
+
+
 class RemoveLengthNamesCreatedHandler(adsk.core.CommandCreatedEventHandler):
     def notify(self, args):
         try:
@@ -111,10 +193,12 @@ def _execute(rename_components, rename_bodies, rename_sketches):
             if new_name == old_name:
                 continue
             try:
-                comp.name = new_name
+                renamed, _, message = _rename_component_or_occurrences(design, comp, new_name)
+                if not renamed:
+                    raise RuntimeError(message or "Fusion rejected component and occurrence rename routes")
                 renamed_components += 1
             except Exception as ex:
-                errors.append(f'Component "{old_name}": {ex}')
+                errors.append(f'Component "{old_name}": {_compact_exception(ex)}')
 
     if rename_bodies:
         for comp in design.allComponents:
@@ -126,10 +210,12 @@ def _execute(rename_components, rename_bodies, rename_sketches):
                 if new_name == old_name:
                     continue
                 try:
-                    body.name = new_name
+                    ok, _, message = _rename_entity(body, new_name, "body")
+                    if not ok:
+                        raise RuntimeError(message)
                     renamed_bodies += 1
                 except Exception as ex:
-                    errors.append(f'Body "{old_name}" in "{comp.name}": {ex}')
+                    errors.append(f'Body "{old_name}" in "{comp.name}": {_compact_exception(ex)}')
 
     if rename_sketches:
         for comp in design.allComponents:
@@ -141,10 +227,12 @@ def _execute(rename_components, rename_bodies, rename_sketches):
                 if new_name == old_name:
                     continue
                 try:
-                    sketch.name = new_name
+                    ok, _, message = _rename_entity(sketch, new_name, "sketch")
+                    if not ok:
+                        raise RuntimeError(message)
                     renamed_sketches += 1
                 except Exception as ex:
-                    errors.append(f'Sketch "{old_name}" in "{comp.name}": {ex}')
+                    errors.append(f'Sketch "{old_name}" in "{comp.name}": {_compact_exception(ex)}')
 
     logger.log_command(
         CMD_NAME,

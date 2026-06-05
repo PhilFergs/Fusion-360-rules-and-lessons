@@ -43,6 +43,7 @@ class RHSCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.addValueInput('rhs_depth',     'Depth',                 length_units, v(core.DEFAULT_RHS_DEPTH_MM))
             inputs.addValueInput('rhs_thickness', 'Wall thickness',        length_units, v(core.DEFAULT_RHS_THICKNESS_MM))
             inputs.addValueInput('rhs_extra',     'Extra end (each side)', length_units, v(0.0))
+            inputs.addBoolValueInput('rhs_profile_name_enabled', 'Add profile to name', True, '', False)
 
             dd = inputs.addDropDownCommandInput(
                 'rhs_angle',
@@ -80,6 +81,10 @@ def _execute(args):
     depth     = mm_val('rhs_depth')
     thickness = mm_val('rhs_thickness')
     extra     = mm_val('rhs_extra')
+    profile_name_enabled = False
+    profile_name_input = adsk.core.BoolValueCommandInput.cast(inputs.itemById('rhs_profile_name_enabled'))
+    if profile_name_input:
+        profile_name_enabled = bool(profile_name_input.value)
 
     angle_dd = adsk.core.DropDownCommandInput.cast(inputs.itemById('rhs_angle'))
     angle = float(angle_dd.selectedItem.name) if angle_dd and angle_dd.selectedItem else 0.0
@@ -92,6 +97,7 @@ def _execute(args):
             "depth_mm": depth,
             "thickness_mm": thickness,
             "extra_mm": extra,
+            "profile_name_enabled": profile_name_enabled,
             "angle_deg": angle,
         },
     )
@@ -99,7 +105,8 @@ def _execute(args):
     core.generate_rhs_from_lines(
         lines,
         width, depth, thickness, extra,
-        angle
+        angle,
+        profile_name_enabled
     )
 
 

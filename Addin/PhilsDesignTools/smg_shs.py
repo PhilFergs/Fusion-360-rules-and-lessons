@@ -42,6 +42,7 @@ class SHSCommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.addValueInput('shs_size',      'Size (width = depth)',   length_units, v(core.DEFAULT_SHS_SIZE_MM))
             inputs.addValueInput('shs_thickness', 'Wall thickness',         length_units, v(core.DEFAULT_SHS_THICKNESS_MM))
             inputs.addValueInput('shs_extra',     'Extra end (each side)',  length_units, v(0.0))
+            inputs.addBoolValueInput('shs_profile_name_enabled', 'Add profile to name', True, '', False)
 
             dd = inputs.addDropDownCommandInput(
                 'shs_angle',
@@ -78,6 +79,10 @@ def _execute(args):
     size      = mm_val('shs_size')
     thickness = mm_val('shs_thickness')
     extra     = mm_val('shs_extra')
+    profile_name_enabled = False
+    profile_name_input = adsk.core.BoolValueCommandInput.cast(inputs.itemById('shs_profile_name_enabled'))
+    if profile_name_input:
+        profile_name_enabled = bool(profile_name_input.value)
 
     angle_dd = adsk.core.DropDownCommandInput.cast(inputs.itemById('shs_angle'))
     angle = float(angle_dd.selectedItem.name) if angle_dd and angle_dd.selectedItem else 0.0
@@ -89,6 +94,7 @@ def _execute(args):
             "size_mm": size,
             "thickness_mm": thickness,
             "extra_mm": extra,
+            "profile_name_enabled": profile_name_enabled,
             "angle_deg": angle,
         },
     )
@@ -96,7 +102,8 @@ def _execute(args):
     core.generate_shs_from_lines(
         lines,
         size, thickness, extra,
-        angle
+        angle,
+        profile_name_enabled
     )
 
 

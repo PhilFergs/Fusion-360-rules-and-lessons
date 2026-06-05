@@ -132,6 +132,312 @@ def _plane_from_point_normal(planes, origin, normal, scale, creation_occ=None):
         return None
 
 
+def _native_object(entity):
+    if not entity:
+        return None
+    try:
+        native = entity.nativeObject
+        if native and native != entity:
+            return native
+    except:
+        pass
+    return None
+
+
+def _safe_entity_token(entity):
+    try:
+        token = entity.entityToken
+        if token:
+            return token
+    except:
+        pass
+    return f"id:{id(entity)}"
+
+
+def _face_reference_candidates(face, target_occ):
+    out = []
+    seen = set()
+
+    def _add(label, candidate):
+        if candidate is None:
+            return
+        key = _safe_entity_token(candidate)
+        if key in seen:
+            return
+        seen.add(key)
+        out.append((label, candidate))
+
+    native = _native_object(face)
+    base_faces = []
+    if native:
+        base_faces.append(("native face", native))
+    base_faces.append(("face", face))
+
+    if target_occ:
+        for label, candidate in base_faces:
+            try:
+                proxy = candidate.createForAssemblyContext(target_occ)
+            except:
+                proxy = None
+            _add(f"{label} proxy", proxy)
+
+    for label, candidate in base_faces:
+        _add(label, candidate)
+
+    return out
+
+
+def _add_sketch_from_reference(sketches, reference, route):
+    if sketches is None or reference is None:
+        return None
+
+    if hasattr(sketches, "addWithoutEdges"):
+        try:
+            sk = sketches.addWithoutEdges(reference)
+            _dbg("execute: sketch created", {"route": f"{route} addWithoutEdges"})
+            return sk
+        except Exception as ex:
+            _dbg(
+                "execute: sketch addWithoutEdges failed",
+                {"route": route, "err": str(ex), "trace": traceback.format_exc()},
+            )
+
+    try:
+        sk = sketches.add(reference)
+        _dbg("execute: sketch created", {"route": f"{route} add"})
+        return sk
+    except Exception as ex:
+        _dbg(
+            "execute: sketch add failed",
+            {"route": route, "err": str(ex), "trace": traceback.format_exc()},
+        )
+        return None
+
+
+def _standard_plane_references_for_axis(target_comp, target_occ, axis_target):
+    axis_n = axis_target.copy()
+    if axis_n.length <= TOL:
+        return []
+    axis_n.normalize()
+
+    planes = [
+        (
+            "origin YZ plane",
+            getattr(target_comp, "yZConstructionPlane", None),
+            adsk.core.Vector3D.create(1, 0, 0),
+        ),
+        (
+            "origin XZ plane",
+            getattr(target_comp, "xZConstructionPlane", None),
+            adsk.core.Vector3D.create(0, 1, 0),
+        ),
+        (
+            "origin XY plane",
+            getattr(target_comp, "xYConstructionPlane", None),
+            adsk.core.Vector3D.create(0, 0, 1),
+        ),
+    ]
+
+    best_label = None
+    best_ref = None
+    best_dot = None
+    for label, plane_ref, normal in planes:
+        if plane_ref is None:
+            continue
+        dot = abs(axis_n.dotProduct(normal))
+        if best_dot is None or dot > best_dot:
+            best_label = label
+            best_ref = plane_ref
+            best_dot = dot
+
+    if best_ref is not None and best_dot is not None and best_dot >= 0.98:
+        out = []
+        if target_occ:
+            try:
+                proxy = best_ref.createForAssemblyContext(target_occ)
+            except Exception as ex:
+                proxy = None
+                _dbg(
+                    "standard plane proxy failed",
+                    {"route": best_label, "err": str(ex)},
+                )
+            if proxy is not None:
+                out.append((f"{best_label} proxy", proxy))
+        out.append((best_label, best_ref))
+        _dbg(
+            "standard plane pick",
+            {"route": best_label, "dot": best_dot, "candidate_count": len(out)},
+        )
+        return out
+
+    _dbg(
+        "standard plane skipped",
+        {"best_dot": best_dot, "axis_target": _fmt_vec(axis_n)},
+    )
+    return []
+
+
+def _standard_plane_for_axis_world(comp, axis_world):
+    axis_n = axis_world.copy()
+    if axis_n.length <= TOL:
+        return None, None
+    axis_n.normalize()
+
+    planes = [
+        ("root YZ plane", getattr(comp, "yZConstructionPlane", None), adsk.core.Vector3D.create(1, 0, 0)),
+        ("root XZ plane", getattr(comp, "xZConstructionPlane", None), adsk.core.Vector3D.create(0, 1, 0)),
+        ("root XY plane", getattr(comp, "xYConstructionPlane", None), adsk.core.Vector3D.create(0, 0, 1)),
+    ]
+
+    best_label = None
+    best_ref = None
+    best_dot = None
+    for label, plane_ref, normal in planes:
+        if plane_ref is None:
+            continue
+        dot = abs(axis_n.dotProduct(normal))
+        if best_dot is None or dot > best_dot:
+            best_label = label
+            best_ref = plane_ref
+            best_dot = dot
+
+    if best_ref is not None and best_dot is not None and best_dot >= 0.98:
+        _dbg("root standard plane pick", {"route": best_label, "dot": best_dot})
+        return best_label, best_ref
+
+    _dbg("root standard plane skipped", {"best_dot": best_dot, "axis_world": _fmt_vec(axis_n)})
+    return None, None
+
+
+def _cut_with_root_sketch(design, target_body_ctx, center_world, axis_world, radius, height):
+    if design is None or target_body_ctx is None:
+        return False
+
+    root_comp = design.rootComponent
+    if root_comp is None:
+        return False
+
+    label, plane_ref = _standard_plane_for_axis_world(root_comp, axis_world)
+    if plane_ref is None:
+        return False
+
+    try:
+        design.activateRootComponent()
+    except:
+        pass
+
+    sketches = root_comp.sketches
+    sk = _add_sketch_from_reference(sketches, plane_ref, label)
+    if sk is None:
+        _dbg("root fallback: sketch creation failed", {"route": label})
+        return False
+
+    try:
+        sk.name = "Hole Cut root fallback"
+    except:
+        pass
+
+    sk_center = sk.modelToSketchSpace(center_world)
+    sk.sketchCurves.sketchCircles.addByCenterRadius(sk_center, radius)
+    _dbg(
+        "root fallback: circle added",
+        {"sk_center": _fmt_point(sk_center), "radius": radius, "center_world": _fmt_point(center_world)},
+    )
+
+    if sk.profiles.count < 1:
+        _dbg("root fallback: no profiles found on sketch")
+        return False
+
+    prof = None
+    best_score = None
+    for i in range(sk.profiles.count):
+        p = sk.profiles.item(i)
+        try:
+            props = p.areaProperties(adsk.fusion.CalculationAccuracy.LowCalculationAccuracy)
+            area = props.area
+            cen = props.centroid
+            d = cen.distanceTo(sk_center)
+            score = d + area * 0.01
+            _dbg("root fallback: profile candidate", {"i": i, "area": area, "d": d})
+        except:
+            score = float(i)
+        if best_score is None or score < best_score:
+            best_score = score
+            prof = p
+
+    if prof is None:
+        _dbg("root fallback: profile selection failed")
+        return False
+
+    hole_height = max(height, radius * 8.0, 20.0)
+    extrudes = root_comp.features.extrudeFeatures
+    try:
+        cut_in = extrudes.createInput(prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
+        cut_in.participantBodies = [target_body_ctx]
+        cut_in.setSymmetricExtent(adsk.core.ValueInput.createByReal(hole_height), True)
+        extrudes.add(cut_in)
+        _dbg(
+            "root fallback: extrude cut added",
+            {"participant": getattr(target_body_ctx, "name", None), "hole_height": hole_height},
+        )
+        return True
+    except Exception as ex:
+        _dbg(
+            "root fallback: extrude cut failed",
+            {"err": str(ex), "trace": traceback.format_exc()},
+        )
+        return False
+
+
+def _create_cut_sketch(target_comp, target_occ, face, center_on_face, axis_target, radius):
+    sketches = target_comp.sketches
+
+    for label, candidate in _face_reference_candidates(face, target_occ):
+        sk = _add_sketch_from_reference(sketches, candidate, label)
+        if sk is not None:
+            return sk
+
+    standard_refs = _standard_plane_references_for_axis(target_comp, target_occ, axis_target)
+    for label, plane_ref in standard_refs:
+        sk = _add_sketch_from_reference(sketches, plane_ref, label)
+        if sk is not None:
+            return sk
+    if not standard_refs:
+        _dbg("execute: standard plane route unavailable")
+
+    # Some nested assembly contexts make Fusion unable to resolve a BRepFace path
+    # for sketches. A local construction plane avoids that fragile face path.
+    planes = target_comp.constructionPlanes
+    scale = max(radius * 4.0, 2.0)
+    plane_routes = [("construction plane", None)]
+    if target_occ:
+        plane_routes.append(("construction plane proxy", target_occ))
+
+    for label, creation_occ in plane_routes:
+        plane = _plane_from_point_normal(
+            planes,
+            center_on_face,
+            axis_target,
+            scale,
+            creation_occ,
+        )
+        if plane is None:
+            continue
+        try:
+            plane.name = "Hole Cut temporary plane"
+        except:
+            pass
+        try:
+            plane.isLightBulbOn = False
+        except:
+            pass
+        sk = _add_sketch_from_reference(sketches, plane, label)
+        if sk is not None:
+            return sk
+
+    return None
+
+
 def _project_point_to_plane(origin, normal, point):
     n = normal.copy()
     if n.length <= TOL:
@@ -431,8 +737,6 @@ def _execute(args):
         },
     )
 
-    sketches = target_comp.sketches
-
     prev_occ = design.activeOccurrence if design else None
     if target_occ and not target_occ.isActive:
         ok = target_occ.activate()
@@ -525,12 +829,35 @@ def _execute(args):
                 skip_count += 1
                 continue
 
-            if hasattr(sketches, "addWithoutEdges"):
-                sk = sketches.addWithoutEdges(face)
-                _dbg("execute: sketch created on face (no edges)", {"face": getattr(face, "tempId", None)})
-            else:
-                sk = sketches.add(face)
-                _dbg("execute: sketch created on face", {"face": getattr(face, "tempId", None)})
+            sk = _create_cut_sketch(
+                target_comp,
+                target_occ,
+                face,
+                center_on_face,
+                axis_target,
+                radius,
+            )
+            if sk is None:
+                if _cut_with_root_sketch(
+                    design,
+                    target_body_ctx,
+                    center_world,
+                    axis_world,
+                    radius,
+                    height,
+                ):
+                    cut_count += 1
+                    continue
+                _dbg(
+                    "execute: sketch creation failed",
+                    {
+                        "face": getattr(face, "tempId", None),
+                        "center_on_face": _fmt_point(center_on_face),
+                        "axis_target": _fmt_vec(axis_target),
+                    },
+                )
+                skip_count += 1
+                continue
             sk_center = sk.modelToSketchSpace(center_on_face)
             sk.sketchCurves.sketchCircles.addByCenterRadius(sk_center, radius)
             _dbg(

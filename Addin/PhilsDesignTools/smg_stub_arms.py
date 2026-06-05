@@ -381,10 +381,18 @@ def _get_wall_center_sketch(root, entry, cache):
         key = id(face)
     if key in cache:
         return cache[key]
-    try:
-        sk = root.sketches.add(face)
-    except:
-        return None
+    sk = None
+    plane = _get_face_plane(face)
+    if plane:
+        try:
+            sk = root.sketches.add(plane)
+        except:
+            sk = None
+    if not sk:
+        try:
+            sk = root.sketches.add(face)
+        except:
+            return None
     try:
         sk.name = _next_sketch_name(root, "WallCenter")
     except:
@@ -1830,6 +1838,28 @@ def _face_is_side(face, axis_dir):
     return abs(n.dotProduct(a)) < 0.3
 
 
+def _strip_occurrence_suffix(name):
+    return str(name or "").strip().split("+")[-1].split(":")[0]
+
+
+def _names_match(a, b):
+    return _strip_occurrence_suffix(a).lower() == str(b or "").strip().lower()
+
+
+def _set_occurrence_component_name(occ, comp, target_name):
+    renamed = False
+    for entity in (occ, comp):
+        if not entity:
+            continue
+        try:
+            if not _names_match(entity.name, target_name):
+                entity.name = target_name
+            renamed = True
+        except:
+            pass
+    return renamed
+
+
 def _get_or_create_stub_component(root):
     if not root:
         return None
@@ -1839,7 +1869,8 @@ def _get_or_create_stub_component(root):
         for i in range(occs.count):
             occ = occs.item(i)
             try:
-                if occ.component and occ.component.name.lower() == STUB_LINES_COMPONENT_NAME.lower():
+                comp_name = occ.component.name if occ.component else ""
+                if _names_match(comp_name, STUB_LINES_COMPONENT_NAME) or _names_match(occ.name, STUB_LINES_COMPONENT_NAME):
                     target = occ.component
                     break
             except:
@@ -1851,7 +1882,7 @@ def _get_or_create_stub_component(root):
     try:
         occ = root.occurrences.addNewComponent(adsk.core.Matrix3D.create())
         comp = occ.component
-        comp.name = STUB_LINES_COMPONENT_NAME
+        _set_occurrence_component_name(occ, comp, STUB_LINES_COMPONENT_NAME)
         return comp
     except:
         return None

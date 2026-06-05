@@ -47,6 +47,13 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Normalize Component Structure: moved child components and rebuilt wrappers now restore their occurrence transform after reparenting so they stay in the same model-space position.
 - Normalize Component Structure: nested reparent moves now restore position through root-level `transformOccurrences` before falling back to direct occurrence transform setters.
 - Move Preserve Position: added a command to reparent selected component occurrences into a target parent occurrence while preserving their root/model-space position for hybrid/direct-modeling assemblies.
+- Batch Rename: now resolves native occurrences and treats component-definition renames as a guarded fallback, avoiding Fusion `renameObject` / component-asset internal validation errors during selected member renames.
+- Hole Cut From Face: sketch creation now tries face proxies/native faces and falls back to a local construction plane, avoiding Fusion `failed to get path to component` errors on nested assembly target faces.
+- Hole Cut From Face: nested target-body cuts now include a root-component sketch/extrude fallback for cases where Fusion rejects all target-component sketch paths.
+- EA/SHS/RHS From Lines: added a default-off `Add profile to name` option so generated names default to `EA186`, `SHS186`, or `RHS186`, with the old profile suffix available when needed.
+- EA/SHS/RHS From Lines: generated components now receive profile descriptions at creation, matching Set Component Descriptions output such as `EA 50 x 50 x 3`.
+- EA/SHS/RHS generation, New Component Set, Remove Length From Names, and Stub Arms To Wall now prefer occurrence/browser naming and guarded fallbacks where Fusion may reject component-definition asset renames.
+- Stub Arms To Wall wall-centre sketch creation now tries a plane-based sketch before falling back to the selected face, reducing nested assembly face-path failures.
 - Set Component Descriptions: now falls back to body-geometry recognition for common generated leaf members (for example renamed EA/SHS/RHS parts whose names no longer include the section family token).
 - Set Component Descriptions: now also assigns simplified design-local material names such as `Steel - SHS`, `Steel - RHS`, and `Steel - EA` to recognised single-body members.
 - Set Component Descriptions: plate descriptions are no longer inferred from `PL` / `PLATE` naming text and now come from the actual model geometry only.

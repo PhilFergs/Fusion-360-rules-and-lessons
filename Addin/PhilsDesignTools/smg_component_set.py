@@ -28,6 +28,23 @@ def _parse_range(text: str):
     return a, b
 
 
+def _set_occurrence_component_name(occ, target_name: str) -> bool:
+    renamed = False
+    for entity in (occ, getattr(occ, "component", None)):
+        if not entity:
+            continue
+        try:
+            if entity.name != target_name:
+                entity.name = target_name
+            renamed = True
+        except Exception as ex:
+            logger.log(
+                f"{CMD_NAME}: failed to set name route='{type(entity).__name__}' "
+                + f"target='{target_name}': {ex}"
+            )
+    return renamed
+
+
 class ComponentSetCreatedHandler(adsk.core.CommandCreatedEventHandler):
     def notify(self, args):
         try:
@@ -103,13 +120,24 @@ def _execute(args):
         },
     )
 
+    created = 0
+    naming_failed = []
     for n in range(start_num, end_num + 1):
-        occ = occs.addNewComponent(adsk.core.Matrix3D.create())
-        occ.component.name = f"{prefix}{n}{suffix}"
+        name = f"{prefix}{n}{suffix}"
+        try:
+            occ = occs.addNewComponent(adsk.core.Matrix3D.create())
+        except Exception as ex:
+            naming_failed.append(f"{name}: create failed: {ex}")
+            continue
+        if _set_occurrence_component_name(occ, name):
+            created += 1
+        else:
+            naming_failed.append(f"{name}: Fusion rejected both occurrence and component names")
 
-    ui.messageBox(
-        f"Created {count} components: {prefix}{start_num}{suffix} - {prefix}{end_num}{suffix}"
-    )
+    msg = f"Created {created} components: {prefix}{start_num}{suffix} - {prefix}{end_num}{suffix}"
+    if naming_failed:
+        msg += "\n\nNaming issues:\n" + "\n".join(naming_failed[:10])
+    ui.messageBox(msg)
 
 
 def register(ui, panel):

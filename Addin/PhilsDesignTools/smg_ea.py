@@ -62,6 +62,7 @@ class EACommandCreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.addValueInput('ea_hole_g',    'Hole gauge',           length_units, v(core.DEFAULT_HOLE_GAUGE_MM))
             inputs.addValueInput('ea_fillet',    'Root fillet radius',   length_units, v(core.DEFAULT_THICKNESS_MM))
             inputs.addBoolValueInput('ea_holes_enabled', 'Create holes', True, '', True)
+            inputs.addBoolValueInput('ea_profile_name_enabled', 'Add profile to name', True, '', False)
 
             dd = inputs.addDropDownCommandInput(
                 'ea_angle',
@@ -110,6 +111,10 @@ def _execute(args):
     holes_input = adsk.core.BoolValueCommandInput.cast(inputs.itemById('ea_holes_enabled'))
     if holes_input:
         holes_enabled = bool(holes_input.value)
+    profile_name_enabled = False
+    profile_name_input = adsk.core.BoolValueCommandInput.cast(inputs.itemById('ea_profile_name_enabled'))
+    if profile_name_input:
+        profile_name_enabled = bool(profile_name_input.value)
 
     angle_dd = adsk.core.DropDownCommandInput.cast(inputs.itemById('ea_angle'))
     angle = float(angle_dd.selectedItem.name) if angle_dd and angle_dd.selectedItem else 0.0
@@ -125,6 +130,7 @@ def _execute(args):
             "hole_g_mm": hole_g,
             "fillet_mm": fillet,
             "holes_enabled": holes_enabled,
+            "profile_name_enabled": profile_name_enabled,
             "angle_deg": angle,
         },
     )
@@ -134,7 +140,8 @@ def _execute(args):
         flange, thickness, extra,
         hole_d, hole_g, fillet,
         angle,
-        holes_enabled
+        holes_enabled,
+        profile_name_enabled
     )
 
 
