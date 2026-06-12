@@ -8,8 +8,8 @@ import smg_context as ctx
 import smg_logger as logger
 
 CMD_ID = "PhilsDesignTools_SetComponentDescriptions"
-CMD_NAME = "Set Component Descriptions"
-CMD_TOOLTIP = "Set Fusion component descriptions from recognised steel profile names."
+CMD_NAME = "Fix Descriptions and Part Numbers"
+CMD_TOOLTIP = "Fix Fusion component descriptions and shortened part numbers from recognised steel profiles."
 RESOURCE_FOLDER = os.path.join(os.path.dirname(__file__), "resources", CMD_ID)
 
 SELECTION_INPUT_ID = "set_component_descriptions_selection"
@@ -17,6 +17,7 @@ ALL_DESIGN_INPUT_ID = "set_component_descriptions_all_design"
 OVERWRITE_INPUT_ID = "set_component_descriptions_overwrite"
 NAME_FALLBACK_INPUT_ID = "set_component_descriptions_name_fallback"
 SET_MATERIALS_INPUT_ID = "set_component_descriptions_set_materials"
+FIX_PART_NUMBERS_INPUT_ID = "set_component_descriptions_fix_part_numbers"
 
 DEBUG_SET_DESCRIPTIONS = True
 
@@ -45,7 +46,7 @@ class SetComponentDescriptionsCreatedHandler(adsk.core.CommandCreatedEventHandle
                 return
 
             info = (
-                "Writes the Fusion component Description field and simplified material names from recognised steel profiles.\n"
+                "Writes the Fusion component Description field, simplified material names, and shortened Part Number values from recognised steel profiles.\n"
                 "Only leaf components are updated: exactly one direct body and no child components.\n"
                 "Uses the actual body geometry to infer the profile family and size."
             )
@@ -80,6 +81,13 @@ class SetComponentDescriptionsCreatedHandler(adsk.core.CommandCreatedEventHandle
             inputs.addBoolValueInput(
                 OVERWRITE_INPUT_ID,
                 "Overwrite existing descriptions",
+                True,
+                "",
+                True,
+            )
+            inputs.addBoolValueInput(
+                FIX_PART_NUMBERS_INPUT_ID,
+                "Fix part numbers",
                 True,
                 "",
                 True,
@@ -143,6 +151,63 @@ def _component_name(comp):
         return comp.name or "<unnamed>"
     except:
         return "<unnamed>"
+
+
+def _strip_version_suffix(text):
+    return re.sub(r"\s+v\d+$", "", (text or "").strip(), flags=re.IGNORECASE).strip()
+
+
+def _looks_like_profile_suffix(text):
+    txt = _strip_version_suffix(text).upper().strip()
+    if not txt:
+        return False
+
+    known_tokens = (
+        "SHS",
+        "RHS",
+        "CHS",
+        "EA",
+        "UA",
+        "UB",
+        "UC",
+        "PFC",
+        "C PURLIN",
+        "C-PURLIN",
+        "FLAT BAR",
+        "PLATE",
+        "PL",
+    )
+    if any(txt.startswith(token) for token in known_tokens):
+        return True
+
+    # Profile suffixes normally begin with stock dimensions, e.g. 100x50x3 RHS.
+    if re.match(r"^\d+(?:\.\d+)?\s*[xX]\s*\d+", txt):
+        return True
+
+    return False
+
+
+def _short_part_number_from_name(name):
+    text = _strip_version_suffix(name)
+    if not text or text.startswith("<"):
+        return ""
+
+    split_match = re.match(r"^(.+?)\s*-\s*(.+)$", text)
+    if split_match and _looks_like_profile_suffix(split_match.group(2)):
+        return split_match.group(1).strip()
+
+    space_match = re.match(r"^([A-Za-z]+\d+[A-Za-z0-9]*)\s+(.+)$", text)
+    if space_match and _looks_like_profile_suffix(space_match.group(2)):
+        return space_match.group(1).strip()
+
+    return text
+
+
+def _component_part_number(comp):
+    try:
+        return comp.partNumber or ""
+    except:
+        return ""
 
 
 def _body_name(body):
@@ -1221,11 +1286,13 @@ def _execute(args):
     overwrite_in = adsk.core.BoolValueCommandInput.cast(inputs.itemById(OVERWRITE_INPUT_ID))
     name_fallback_in = adsk.core.BoolValueCommandInput.cast(inputs.itemById(NAME_FALLBACK_INPUT_ID))
     set_materials_in = adsk.core.BoolValueCommandInput.cast(inputs.itemById(SET_MATERIALS_INPUT_ID))
+    fix_part_numbers_in = adsk.core.BoolValueCommandInput.cast(inputs.itemById(FIX_PART_NUMBERS_INPUT_ID))
 
     use_whole_design = all_design_in.value if all_design_in else True
     overwrite_existing = overwrite_in.value if overwrite_in else True
     use_name_fallback = name_fallback_in.value if name_fallback_in else False
     set_materials = set_materials_in.value if set_materials_in else False
+    fix_part_numbers = fix_part_numbers_in.value if fix_part_numbers_in else True
 
     if use_whole_design:
         components = _all_components(design)
@@ -1244,6 +1311,10 @@ def _execute(args):
         "materials_set": 0,
         "material_already_matched": 0,
         "material_failed": 0,
+        "part_numbers_set": 0,
+        "part_numbers_already_matched": 0,
+        "part_numbers_failed": 0,
+        "part_numbers_skipped": 0,
         "name_recognized": 0,
         "geometry_recognized": 0,
         "non_leaf_skipped": 0,
@@ -1257,7 +1328,7 @@ def _execute(args):
     logger.log(
         f"SET_DESC: execute components={len(components)} whole_design={use_whole_design} "
         + f"overwrite={overwrite_existing} name_fallback={use_name_fallback} "
-        + f"set_materials={set_materials}"
+        + f"set_materials={set_materials} fix_part_numbers={fix_part_numbers}"
     )
 
     for comp in components:
@@ -1278,6 +1349,32 @@ def _execute(args):
             stats["non_leaf_skipped"] += 1
             _dbg(f"component skipped non_leaf name='{comp_name}'")
             continue
+
+        if fix_part_numbers:
+            target_part_number = _short_part_number_from_name(comp_name)
+            if not target_part_number:
+                stats["part_numbers_skipped"] += 1
+                _dbg(f"part number skipped blank target name='{comp_name}'")
+            else:
+                current_part_number = _component_part_number(comp)
+                if current_part_number == target_part_number:
+                    stats["part_numbers_already_matched"] += 1
+                else:
+                    try:
+                        comp.partNumber = target_part_number
+                        stats["part_numbers_set"] += 1
+                        _dbg(
+                            f"part number set name='{comp_name}' "
+                            + f"old='{current_part_number}' new='{target_part_number}'"
+                        )
+                    except Exception as ex:
+                        stats["part_numbers_failed"] += 1
+                        stats["errors"] += 1
+                        errors.append(f'Failed to set part number on "{comp_name}": {ex}')
+                        logger.log(
+                            f"SET_DESC: part number set failed name='{comp_name}' "
+                            + f"target='{target_part_number}': {ex}"
+                        )
 
         try:
             desc, source = _build_description(comp, design.unitsManager, use_name_fallback)
@@ -1360,12 +1457,16 @@ def _execute(args):
     logger.log_command(CMD_NAME, dict(stats))
 
     summary = [
-        "Component description update complete.",
+        "Description and part number update complete.",
         "",
         f"Components scanned: {stats['components_scanned']}",
         f"Descriptions set: {stats['descriptions_set']}",
         f"Already matched: {stats['already_matched']}",
         f"Existing kept: {stats['existing_kept']}",
+        f"Part numbers set: {stats['part_numbers_set']}",
+        f"Part numbers already matched: {stats['part_numbers_already_matched']}",
+        f"Part numbers failed: {stats['part_numbers_failed']}",
+        f"Part numbers skipped: {stats['part_numbers_skipped']}",
         f"Materials set: {stats['materials_set']}",
         f"Material already matched: {stats['material_already_matched']}",
         f"Recognised by name: {stats['name_recognized']}",
@@ -1389,7 +1490,30 @@ def _execute(args):
 
 
 def register(ui, panel):
+    if panel:
+        try:
+            existing_ctrl = panel.controls.itemById(CMD_ID)
+            if existing_ctrl:
+                existing_ctrl.deleteMe()
+        except:
+            pass
+
     cmd_def = ui.commandDefinitions.itemById(CMD_ID)
+    if cmd_def:
+        try:
+            cmd_def.deleteMe()
+            cmd_def = None
+        except:
+            logger.log(f"{CMD_NAME}: existing command definition could not be deleted; reusing it.")
+            try:
+                cmd_def.name = CMD_NAME
+            except:
+                pass
+            try:
+                cmd_def.tooltip = CMD_TOOLTIP
+            except:
+                pass
+
     if not cmd_def:
         cmd_def = ui.commandDefinitions.addButtonDefinition(
             CMD_ID,

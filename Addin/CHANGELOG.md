@@ -64,6 +64,7 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Set Component Descriptions: channel-like cold-formed `C` sections are now recognised before EA fallback, so parts such as `C100` purlins no longer drop through as equal angle.
 - Set Component Descriptions: added geometry recognition for `UB` and `PFC` sections so future hot-rolled beam/channel jobs can populate descriptions and simplified material names without relying on naming text.
 - Set Component Descriptions: restored body-profile geometry as the primary description source, with optional name fallback only after geometry recognition fails; per-component progress logging remains in place before geometry/material API calls.
+- Set Component Descriptions has been renamed to Fix Descriptions and Part Numbers, and now also shortens leaf component Part Number values from profile-style Part Names such as `C56-100x50x3 RHS` -> `C56`.
 - Stub Arms To Wall: added a `Top line angle` input (default `0 deg`) that moves the shared wall endpoint for each pair while preserving current output at `0 deg`.
 - Stub Arms To Wall: added a user-adjustable `Max pair angle` input (default `45 deg`) that keeps the upper pair line unchanged and slides the lower endpoint along the member when the included angle would otherwise open too far.
 - Normalize Component Structure: converted child components now avoid generic source names like `Body1`/`Body2` by using parent-based fallback names during conversion.

@@ -19,7 +19,7 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
   Multi Part File Export, New Component Set, Wireframe From Body, Hole Cut From Face,
   Stub Arms To Wall, Stub Arms Export, Stub Arms Export DXF, Stub Arms Set Bracket,
   Remove Length From Names, Bulk Replace Components, Normalize Component Structure,
-  Move Preserve Position, Set Component Descriptions
+  Move Preserve Position, Fix Descriptions and Part Numbers
 
 ## Tool instructions
 - EA From Lines: Select sketch lines, set flange/thickness/extra/holes/angle, choose whether to add the profile suffix to generated names, then OK. Names default to `EA###`; generated components get descriptions like `EA 50 x 50 x 3`.
@@ -42,7 +42,7 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - Stub Arms Set Bracket: Select stub arm lines, choose Square/Swivel, then OK to reclassify.
 - Normalize Component Structure: One-click cleanup that moves mixed/multi-body direct bodies into child components and renames single direct bodies to match their parent component.
 - Move Preserve Position: Select component occurrences and a target parent occurrence to reparent them while preserving their root/model-space position in hybrid/direct-modeling assemblies.
-- Set Component Descriptions: Write Fusion component Description values for supported single-body leaf members from the actual body profile. Optional name fallback and simplified material assignment can be enabled when needed.
+- Fix Descriptions and Part Numbers: Write Fusion component Description values for supported single-body leaf members from the actual body profile, and shorten Part Number values from the Part Name where the suffix is a recognised steel/profile size. Optional name fallback and simplified material assignment can be enabled when needed.
 
 ## Development notes
 - Update `Addin/CHANGELOG.md` (user-facing) and `Addin/DEVLOG.md` (working notes) with each change set.

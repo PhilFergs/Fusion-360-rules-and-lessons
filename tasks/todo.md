@@ -1,3 +1,45 @@
+# Installer Refresh For 1.0.14
+
+Date: 2026-06-12
+
+## Plan
+- [x] Bump PhilsDesignTools version metadata for a fresh MSI filename
+- [x] Build fresh installer ZIP/MSI artifacts
+- [x] Run package verification
+- [x] Commit and push the source/docs/artifacts
+
+## Verification Notes
+- Target MSI: `fusion360-addins-installer-pdt-1.0.14-bom-1.03.msi`
+- Build outputs:
+  - `Addin/tools/dist/fusion360-addins-installer-pdt-1.0.14-bom-1.03.zip`
+  - `Addin/tools/dist/fusion360-addins-installer-pdt-1.0.14-bom-1.03.msi`
+- Syntax check passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_set_component_descriptions.py Addin/PhilsDesignTools/PhilsDesignTools.py`
+- Artifact SHA-256:
+  - ZIP `06AAF7D1777F4A4268FB2B4F97E3AD227B86E0E5F7497AE7A1954311A7AB5B02`
+  - MSI `C1989E8E3BB8AF609498B844D6B69C32535BC7FA7FD42B43EB67C00522363B12`
+
+# Fix Descriptions And Part Numbers
+
+Date: 2026-06-12
+
+## Plan
+- [x] Inspect the existing Set Component Descriptions command flow
+- [x] Add shortened Part Number updates for leaf components
+- [x] Rename the visible command to Fix Descriptions and Part Numbers
+- [x] Run syntax checks
+- [x] Mirror the updated command into the active Fusion add-in folder
+
+## Verification Notes
+- Target part-number behavior: `C56-100x50x3 RHS` -> `C56`, using the component Part Name/name as the source.
+- The internal command ID remains `PhilsDesignTools_SetComponentDescriptions` so existing toolbar cleanup/resource paths stay compatible.
+- Repo syntax check passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_set_component_descriptions.py Addin/PhilsDesignTools/PhilsDesignTools.py`
+- Active Fusion add-in backup created:
+  - `C:\Users\phil9\AppData\Roaming\Autodesk\Autodesk Fusion 360\API\AddIns\PhilsDesignTools\smg_set_component_descriptions.py.bak-20260612-111934`
+- Active installed syntax check passed and matches repo by SHA-256:
+  - `5A0C33C674B59D33DFDC634AEF5403BC14667381F542583154F9CADC53A09F67`
+
 # Installer Refresh For 1.0.13
 
 Date: 2026-06-05

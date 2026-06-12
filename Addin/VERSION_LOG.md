@@ -3,6 +3,10 @@
 Each upload should add a dated entry here and use the deploy script to back up
 the previous add-in folder before overwriting files in the Fusion add-ins path.
 
+## 2026-06-12 11:25
+- Branch: feature/in-development
+- Summary: Renamed Set Component Descriptions to Fix Descriptions and Part Numbers, added shortened leaf-component Part Number updates, and bumped PhilsDesignTools version to 1.0.14.
+
 ## 2026-06-05 13:20
 - Branch: feature/in-development
 - Summary: Hardened Hole Cut From Face for nested assembly target bodies, added default-off EA/SHS/RHS profile-name suffix toggles, set generated EA/SHS/RHS component descriptions at creation, hardened Fusion rename/sketch paths, and bumped PhilsDesignTools version to 1.0.13.
