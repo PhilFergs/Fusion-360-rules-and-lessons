@@ -1,0 +1,14 @@
+# Runtime files permitted in the 2.0.0 foundation artifact.
+PhilsFusionTools/PhilsFusionTools.manifest
+PhilsFusionTools/PhilsFusionTools.py
+PhilsFusionTools/build-info.json
+PhilsFusionTools/philsfusion/__init__.py
+PhilsFusionTools/philsfusion/app.py
+PhilsFusionTools/philsfusion/catalog.py
+PhilsFusionTools/philsfusion/lifecycle.py
+PhilsFusionTools/philsfusion/registry.py
+PhilsFusionTools/philsfusion/services/__init__.py
+PhilsFusionTools/philsfusion/services/diagnostics.py
+PhilsFusionTools/philsfusion/services/files.py
+PhilsFusionTools/philsfusion/services/safety.py
+PhilsFusionTools/philsfusion/services/settings.py
