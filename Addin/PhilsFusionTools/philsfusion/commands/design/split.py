@@ -6,6 +6,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_SplitBody_V2"
 OLD_CMD_IDS = ["PhilsDesignTools_SplitBody"]
@@ -22,6 +23,7 @@ LAST_SPLIT_BODY_TOKENS = []
 
 
 class SplitExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             _execute(args)
@@ -82,6 +84,7 @@ class SplitCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
 
 class SplitDeleteExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(DELETE_CMD_ID)
     def notify(self, args):
         try:
             _execute_delete(args)

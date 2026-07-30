@@ -10,6 +10,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirm_overwrite
 
 CMD_ID = "PhilsDesignTools_StubArms_Export_CSV"
 CMD_NAME = "Stub Arms Export"
@@ -995,6 +996,13 @@ def _execute(args):
         return
 
     out_path = _normalise_output_path(file_dlg.filename, out_ext)
+    if not confirm_overwrite(
+        ui,
+        out_path,
+        f"Export {total} stub arms.",
+        command_id=CMD_ID,
+    ):
+        return
     stub_arm_screw_total = total * screws_per_stub_arm
 
     rows = []

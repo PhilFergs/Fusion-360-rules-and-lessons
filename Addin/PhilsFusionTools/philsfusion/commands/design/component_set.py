@@ -7,6 +7,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_ComponentSet"
 CMD_NAME = "New Component Set"
@@ -69,6 +70,7 @@ class ComponentSetCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
 
 class ComponentSetExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             _execute(args)

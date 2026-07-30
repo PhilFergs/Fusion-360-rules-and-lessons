@@ -29,6 +29,7 @@ EXPECTED_MODULES = {
     "remove_length_names.py",
     "rename.py",
     "rotate.py",
+    "safety_bridge.py",
     "set_component_descriptions.py",
     "sort_components.py",
     "split.py",

@@ -8,6 +8,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_StubArms"
 CMD_NAME = "Stub Arms To Wall"
@@ -42,6 +43,7 @@ USE_RAY_FALLBACK = False
 
 
 class StubArmsExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             _execute(args)

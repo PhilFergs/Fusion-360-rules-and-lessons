@@ -7,6 +7,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirm_command
 
 CMD_ID = "PhilsDesignTools_IGES_Export"
 CMD_NAME = "Multi Part File Export"
@@ -389,6 +390,14 @@ def _execute(args):
 
     folder = choose_export_folder(ui, export_format)
     if not folder:
+        return
+    if not confirm_command(
+        ui,
+        CMD_ID,
+        CMD_NAME,
+        change_count=len(comps),
+        summary=f"Export {len(comps)} components to the selected folder.",
+    ):
         return
 
     export_mgr = design.exportManager

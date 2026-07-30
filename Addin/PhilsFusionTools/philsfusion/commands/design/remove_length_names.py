@@ -7,6 +7,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_RemoveLengthNames"
 CMD_NAME = "Remove Length From Names"
@@ -124,6 +125,7 @@ class RemoveLengthNamesCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
 
 class RemoveLengthNamesExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             cmd = args.command

@@ -7,6 +7,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_SetComponentDescriptions"
 CMD_NAME = "Fix Descriptions and Part Numbers"
@@ -117,6 +118,7 @@ class SetComponentDescriptionsCreatedHandler(adsk.core.CommandCreatedEventHandle
 
 
 class SetComponentDescriptionsExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             _execute(args)

@@ -7,6 +7,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_SortComponents"
 CMD_NAME = "Sort Components"
@@ -132,6 +133,7 @@ def _sort_occurrences_in_component(comp, timeline):
 
 
 class SortComponentsExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             _execute(args)

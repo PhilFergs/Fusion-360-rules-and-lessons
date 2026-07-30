@@ -6,6 +6,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_StubArms_SetBracket"
 CMD_NAME = "Stub Arms Set Bracket"
@@ -69,6 +70,7 @@ class StubArmsBracketCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
 
 class StubArmsBracketExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             _execute(args)

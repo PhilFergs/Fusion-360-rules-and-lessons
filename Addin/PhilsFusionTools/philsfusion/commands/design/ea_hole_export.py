@@ -9,6 +9,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirm_overwrite
 
 CMD_ID = "PhilsDesignTools_EA_HoleExport_CSV"
 CMD_NAME = "EA Hole Export"
@@ -475,6 +476,13 @@ def _execute(args):
         return
 
     out_path = _ensure_file_extension(file_dlg.filename, _extension_for_filetype(filetype))
+    if not confirm_overwrite(
+        ui,
+        out_path,
+        f"Export {len(bodies)} selected bodies.",
+        command_id=CMD_ID,
+    ):
+        return
 
     logger.log_command(
         CMD_NAME,

@@ -9,6 +9,7 @@ import adsk.fusion
 from . import context as ctx
 from . import logger
 from . import stub_arms as base
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_StubArmPair"
 CMD_NAME = "Stub Arm Pair To Wall"
@@ -384,6 +385,7 @@ class StubArmPairCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
 
 class StubArmPairExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             _execute(args)

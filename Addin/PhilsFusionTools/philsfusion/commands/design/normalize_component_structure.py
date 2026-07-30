@@ -7,6 +7,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_NormalizeComponentStructure"
 CMD_NAME = "Normalize Component Structure"
@@ -40,6 +41,7 @@ class NormalizeStructureCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
 
 class NormalizeStructureExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             _execute()

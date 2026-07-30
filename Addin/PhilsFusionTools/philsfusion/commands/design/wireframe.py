@@ -6,6 +6,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_WireframeFromBody"
 CMD_NAME = "Wireframe From Body"
@@ -45,6 +46,7 @@ class WireframeCreatedHandler(adsk.core.CommandCreatedEventHandler):
 
 
 class WireframeExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             _execute(args)

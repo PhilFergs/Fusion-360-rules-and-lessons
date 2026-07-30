@@ -8,6 +8,7 @@ import adsk.fusion
 from . import context as ctx
 from . import logger
 from . import stub_arms_export as stub_export
+from .safety_bridge import confirm_overwrite
 
 CMD_ID = "PhilsDesignTools_StubArms_Export_DXF"
 CMD_NAME = "Stub Arms Export DXF"
@@ -240,6 +241,13 @@ def _execute(args):
 
     out_path = _choose_output_path(ui)
     if not out_path:
+        return
+    if not confirm_overwrite(
+        ui,
+        out_path,
+        f"Export {len(lines)} stub arm lines.",
+        command_id=CMD_ID,
+    ):
         return
 
     units_manager = design.unitsManager

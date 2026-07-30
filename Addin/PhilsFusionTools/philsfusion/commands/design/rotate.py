@@ -7,6 +7,7 @@ import adsk.fusion
 
 from . import context as ctx
 from . import logger
+from .safety_bridge import confirmed
 
 CMD_ID = "PhilsDesignTools_Rotate"
 CMD_NAME = "Rotate Steel Member"
@@ -24,6 +25,7 @@ def _fmt_vec(v):
 
 
 class RotateExecuteHandler(adsk.core.CommandEventHandler):
+    @confirmed(CMD_ID)
     def notify(self, args):
         try:
             _execute(args)
