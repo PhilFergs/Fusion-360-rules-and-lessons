@@ -1,0 +1,14 @@
+{
+  "autodeskProduct": "fusion360",
+  "type": "addin",
+  "id": "PhilsFusionTools",
+  "author": "Phil Fergs",
+  "description": {
+    "en-US": "Unified design, fabrication, export, and BOM tools."
+  },
+  "version": "2.0.0",
+  "runOnStartup": true,
+  "supportedOS": "windows",
+  "engine": "CPython",
+  "entry": "PhilsFusionTools.py"
+}
