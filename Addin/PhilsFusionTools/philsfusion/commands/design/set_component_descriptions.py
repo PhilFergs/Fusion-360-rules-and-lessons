@@ -5,6 +5,11 @@ import traceback
 import adsk.core
 import adsk.fusion
 
+from philsfusion.services.component_properties import (
+    document_metadata_state,
+    set_string_property_verified,
+)
+
 from . import context as ctx
 from . import logger
 from .safety_bridge import confirmed
@@ -50,13 +55,14 @@ class SetComponentDescriptionsCreatedHandler(adsk.core.CommandCreatedEventHandle
             info = (
                 "Writes the Fusion component Description field, simplified material names, and shortened Part Number values from recognised steel profiles.\n"
                 "Only leaf components are updated: exactly one direct body and no child components.\n"
-                "Uses the actual body geometry to infer the profile family and size."
+                "Uses the actual body geometry to infer the profile family and size.\n"
+                "Save the latest design changes before running so Fusion metadata is ready."
             )
             inputs.addTextBoxCommandInput(
                 "set_component_descriptions_info",
                 "",
                 info,
-                3,
+                4,
                 True,
             )
 
@@ -1279,6 +1285,27 @@ def _execute(args):
         ui.messageBox("No active Fusion design.")
         return
 
+    metadata_state = document_metadata_state(app.activeDocument)
+    if metadata_state != "ready":
+        reason = {
+            "never-saved": "This design has not been saved yet.",
+            "changes-not-saved": "This design has unsaved changes.",
+            "unknown": "Fusion did not expose a reliable document save state.",
+        }[metadata_state]
+        logger.log(
+            f"SET_DESC: blocked metadata_state={metadata_state} "
+            + f"document='{getattr(app.activeDocument, 'name', '<unknown>')}'"
+        )
+        ui.messageBox(
+            reason
+            + "\n\nPart Number and Description are cloud-managed Fusion metadata. "
+            + "Save the design, wait for the save/sync to finish, then run this "
+            + "command again.\n\nFusion does not allow an add-in to save while a "
+            + "command is running.",
+            CMD_NAME,
+        )
+        return
+
     cmd = args.command
     inputs = cmd.commandInputs
     sel_input = adsk.core.SelectionCommandInput.cast(inputs.itemById(SELECTION_INPUT_ID))
@@ -1306,6 +1333,7 @@ def _execute(args):
     stats = {
         "components_scanned": 0,
         "descriptions_set": 0,
+        "descriptions_failed": 0,
         "already_matched": 0,
         "existing_kept": 0,
         "materials_set": 0,
@@ -1360,20 +1388,28 @@ def _execute(args):
                 if current_part_number == target_part_number:
                     stats["part_numbers_already_matched"] += 1
                 else:
-                    try:
-                        comp.partNumber = target_part_number
+                    result = set_string_property_verified(
+                        comp,
+                        "partNumber",
+                        target_part_number,
+                    )
+                    if result.persisted:
                         stats["part_numbers_set"] += 1
                         _dbg(
                             f"part number set name='{comp_name}' "
                             + f"old='{current_part_number}' new='{target_part_number}'"
                         )
-                    except Exception as ex:
+                    else:
                         stats["part_numbers_failed"] += 1
                         stats["errors"] += 1
-                        errors.append(f'Failed to set part number on "{comp_name}": {ex}')
+                        errors.append(
+                            f'Part number did not persist on "{comp_name}": '
+                            + result.error
+                        )
                         logger.log(
-                            f"SET_DESC: part number set failed name='{comp_name}' "
-                            + f"target='{target_part_number}': {ex}"
+                            f"SET_DESC: part number verification failed name='{comp_name}' "
+                            + f"target='{target_part_number}' "
+                            + f"observed='{result.observed}': {result.error}"
                         )
 
         try:
@@ -1417,13 +1453,20 @@ def _execute(args):
             stats["existing_kept"] += 1
             desc_blocked = True
         else:
-            try:
-                comp.description = desc
+            result = set_string_property_verified(comp, "description", desc)
+            if result.persisted:
                 stats["descriptions_set"] += 1
-            except Exception as ex:
+            else:
+                stats["descriptions_failed"] += 1
                 stats["errors"] += 1
-                errors.append(f'Failed to set description on "{comp_name}": {ex}')
-                logger.log(f"SET_DESC: description set failed name='{comp_name}' desc='{desc}': {ex}")
+                errors.append(
+                    f'Description did not persist on "{comp_name}": '
+                    + result.error
+                )
+                logger.log(
+                    f"SET_DESC: description verification failed name='{comp_name}' "
+                    + f"target='{desc}' observed='{result.observed}': {result.error}"
+                )
 
         target_material_name = _material_name_from_description(desc)
         if set_materials and body and target_material_name:
@@ -1456,11 +1499,22 @@ def _execute(args):
 
     logger.log_command(CMD_NAME, dict(stats))
 
+    writes_persisted = stats["descriptions_set"] + stats["part_numbers_set"]
+    if stats["errors"] and not writes_persisted:
+        headline = "No description or part number changes were saved."
+    elif stats["errors"]:
+        headline = "Update completed with verification failures."
+    elif writes_persisted:
+        headline = "Description and part number update verified."
+    else:
+        headline = "No description or part number changes were needed."
+
     summary = [
-        "Description and part number update complete.",
+        headline,
         "",
         f"Components scanned: {stats['components_scanned']}",
         f"Descriptions set: {stats['descriptions_set']}",
+        f"Descriptions failed: {stats['descriptions_failed']}",
         f"Already matched: {stats['already_matched']}",
         f"Existing kept: {stats['existing_kept']}",
         f"Part numbers set: {stats['part_numbers_set']}",
