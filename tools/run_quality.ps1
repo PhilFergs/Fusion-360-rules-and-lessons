@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $root ".venv\Scripts\python.exe"
 $addinRoot = Join-Path $root "Addin\PhilsFusionTools"
-$pycacheRoot = Join-Path $root "build\pycache"
+$pycacheRoot = Join-Path $env:TEMP "pft-pycache"
 
 if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
     throw "Development environment is missing. Run: py -3.10 -m venv .venv"

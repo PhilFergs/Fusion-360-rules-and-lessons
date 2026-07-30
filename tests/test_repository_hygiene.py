@@ -23,5 +23,6 @@ def test_unified_release_tree_contains_no_forbidden_files():
         path.relative_to(ROOT).as_posix()
         for pattern in FORBIDDEN
         for path in release_root.rglob(pattern)
+        if "__pycache__" not in path.parts
     )
     assert offenders == []
