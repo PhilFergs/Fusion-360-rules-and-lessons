@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 SCHEMA_VERSION = 2
+SETTINGS_SCHEMA_VERSION = SCHEMA_VERSION
 DEFAULT_SETTINGS = {
     "schema_version": SCHEMA_VERSION,
     "ui": {},

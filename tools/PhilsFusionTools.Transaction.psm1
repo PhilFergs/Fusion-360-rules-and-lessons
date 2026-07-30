@@ -94,7 +94,11 @@ function Get-RuntimeTreeHash {
     $resolvedRoot = [IO.Path]::GetFullPath($Root).TrimEnd("\")
     $records = @(
         Get-ChildItem -LiteralPath $resolvedRoot -File -Recurse |
-            Where-Object { $_.Name -ne "build-info.json" } |
+            Where-Object {
+                $_.Name -ne "build-info.json" -and
+                $_.Extension -ne ".pyc" -and
+                $_.FullName -notmatch "[\\/]__pycache__[\\/]"
+            } |
             ForEach-Object {
                 $relative = $_.FullName.Substring($resolvedRoot.Length + 1).Replace("\", "/")
                 $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()

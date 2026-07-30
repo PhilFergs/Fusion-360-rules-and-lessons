@@ -151,6 +151,14 @@ Describe "Phils Fusion Tools transactional installer" {
         $environment = New-TestEnvironment "failed-health"
         Install-TestPackage $environment | Out-Null
         $transaction = Get-Transaction $environment
+        $runtimeCache = Join-Path $environment.AddIns (
+            "PhilsFusionTools\philsfusion\__pycache__"
+        )
+        New-Item -ItemType Directory -Force -Path $runtimeCache | Out-Null
+        [IO.File]::WriteAllBytes(
+            (Join-Path $runtimeCache "runtime.cpython-311.pyc"),
+            [byte[]](1, 2, 3)
+        )
         $healthPath = Join-Path $environment.Documents "PhilsFusionTools\health.json"
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $healthPath) | Out-Null
         @{
