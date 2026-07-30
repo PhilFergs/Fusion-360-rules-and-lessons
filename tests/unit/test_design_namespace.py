@@ -24,6 +24,7 @@ EXPECTED_MODULES = {
     "logger.py",
     "move_preserve_position.py",
     "normalize_component_structure.py",
+    "profile_schema.py",
     "remove_length_names.py",
     "rename.py",
     "rotate.py",
@@ -35,6 +36,7 @@ EXPECTED_MODULES = {
     "stub_arms_bracket.py",
     "stub_arms_export.py",
     "stub_arms_export_dxf.py",
+    "steel_member.py",
     "wireframe.py",
 }
 
