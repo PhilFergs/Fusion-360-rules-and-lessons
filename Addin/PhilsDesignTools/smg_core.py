@@ -15,6 +15,68 @@ DEFAULT_RHS_WIDTH_MM       = 100.0
 DEFAULT_RHS_DEPTH_MM       = 50.0
 DEFAULT_RHS_THICKNESS_MM   = 3.0
 
+UB_SECTIONS = [
+    {"name": "150 UB 14", "depth": 150.0, "width": 75.0, "flange": 7.0, "web": 5.0},
+    {"name": "150 UB 18", "depth": 155.0, "width": 75.0, "flange": 9.5, "web": 6.0},
+    {"name": "180 UB 16.1", "depth": 173.0, "width": 90.0, "flange": 7.0, "web": 4.5},
+    {"name": "180 UB 18.1", "depth": 175.0, "width": 90.0, "flange": 8.0, "web": 5.0},
+    {"name": "180 UB 22.2", "depth": 179.0, "width": 90.0, "flange": 10.0, "web": 6.0},
+    {"name": "200 UB 18.2", "depth": 198.0, "width": 99.0, "flange": 7.0, "web": 4.5},
+    {"name": "200 UB 22.2", "depth": 202.0, "width": 133.0, "flange": 7.0, "web": 5.0},
+    {"name": "200 UB 25.4", "depth": 203.0, "width": 133.0, "flange": 7.8, "web": 5.8},
+    {"name": "200 UB 29.8", "depth": 207.0, "width": 134.0, "flange": 9.6, "web": 6.3},
+    {"name": "250 UB 25.7", "depth": 248.0, "width": 124.0, "flange": 8.0, "web": 5.0},
+    {"name": "250 UB 31.4", "depth": 252.0, "width": 146.0, "flange": 8.6, "web": 6.1},
+    {"name": "250 UB 37.3", "depth": 256.0, "width": 146.0, "flange": 10.9, "web": 6.4},
+    {"name": "310 UB 32", "depth": 298.0, "width": 149.0, "flange": 8.0, "web": 5.5},
+    {"name": "310 UB 40.4", "depth": 304.0, "width": 165.0, "flange": 10.2, "web": 6.1},
+    {"name": "310 UB 46.2", "depth": 307.0, "width": 166.0, "flange": 11.8, "web": 6.7},
+    {"name": "360 UB 44.7", "depth": 352.0, "width": 171.0, "flange": 9.7, "web": 6.9},
+    {"name": "360 UB 50.7", "depth": 356.0, "width": 171.0, "flange": 11.5, "web": 7.3},
+    {"name": "360 UB 56.7", "depth": 359.0, "width": 172.0, "flange": 13.0, "web": 8.0},
+    {"name": "410 UB 53.7", "depth": 403.0, "width": 178.0, "flange": 10.9, "web": 7.6},
+    {"name": "410 UB 59.7", "depth": 406.0, "width": 178.0, "flange": 12.8, "web": 7.8},
+    {"name": "460 UB 67.1", "depth": 454.0, "width": 190.0, "flange": 12.7, "web": 8.5},
+    {"name": "460 UB 74.6", "depth": 457.0, "width": 190.0, "flange": 14.5, "web": 9.1},
+    {"name": "460 UB 82.1", "depth": 460.0, "width": 191.0, "flange": 16.0, "web": 9.9},
+    {"name": "530 UB 82", "depth": 528.0, "width": 209.0, "flange": 13.2, "web": 9.6},
+    {"name": "530 UB 92.4", "depth": 533.0, "width": 209.0, "flange": 15.6, "web": 10.2},
+    {"name": "610 UB 101", "depth": 602.0, "width": 228.0, "flange": 14.8, "web": 10.6},
+    {"name": "610 UB 113", "depth": 607.0, "width": 228.0, "flange": 17.3, "web": 11.2},
+    {"name": "610 UB 125", "depth": 612.0, "width": 229.0, "flange": 19.6, "web": 11.9},
+]
+
+PFC_SECTIONS = [
+    {"name": "75 PFC", "depth": 75.0, "width": 40.0, "flange": 6.1, "web": 3.8},
+    {"name": "100 PFC", "depth": 100.0, "width": 50.0, "flange": 6.7, "web": 4.2},
+    {"name": "125 PFC", "depth": 125.0, "width": 65.0, "flange": 7.5, "web": 4.7},
+    {"name": "150 PFC", "depth": 150.0, "width": 75.0, "flange": 9.5, "web": 6.0},
+    {"name": "180 PFC", "depth": 180.0, "width": 75.0, "flange": 11.0, "web": 6.0},
+    {"name": "200 PFC", "depth": 200.0, "width": 75.0, "flange": 12.0, "web": 6.0},
+    {"name": "230 PFC", "depth": 230.0, "width": 75.0, "flange": 12.0, "web": 6.5},
+    {"name": "250 PFC", "depth": 250.0, "width": 90.0, "flange": 15.0, "web": 8.0},
+    {"name": "300 PFC", "depth": 300.0, "width": 90.0, "flange": 16.0, "web": 8.0},
+    {"name": "380 PFC", "depth": 380.0, "width": 100.0, "flange": 17.5, "web": 10.0},
+]
+
+C_CHANNEL_SECTIONS = [
+    {"name": "C100.10", "depth": 102.0, "width": 51.0, "thickness": 1.0, "lip": 12.5},
+    {"name": "C100.12", "depth": 102.0, "width": 51.0, "thickness": 1.2, "lip": 13.0},
+    {"name": "C100.15", "depth": 102.0, "width": 51.0, "thickness": 1.5, "lip": 14.0},
+    {"name": "C100.19", "depth": 102.0, "width": 51.0, "thickness": 1.9, "lip": 15.0},
+    {"name": "C150.10", "depth": 152.0, "width": 64.0, "thickness": 1.0, "lip": 14.5},
+    {"name": "C150.12", "depth": 152.0, "width": 64.0, "thickness": 1.2, "lip": 15.0},
+    {"name": "C150.15", "depth": 152.0, "width": 64.0, "thickness": 1.5, "lip": 16.0},
+    {"name": "C150.19", "depth": 152.0, "width": 64.0, "thickness": 1.9, "lip": 17.0},
+    {"name": "C150.24", "depth": 152.0, "width": 64.0, "thickness": 2.4, "lip": 18.5},
+    {"name": "C200.15", "depth": 203.0, "width": 76.0, "thickness": 1.5, "lip": 16.0},
+    {"name": "C200.19", "depth": 203.0, "width": 76.0, "thickness": 1.9, "lip": 19.5},
+    {"name": "C200.24", "depth": 203.0, "width": 76.0, "thickness": 2.4, "lip": 21.0},
+    {"name": "C250.15", "depth": 254.0, "width": 76.0, "thickness": 1.5, "lip": 15.5},
+    {"name": "C250.19", "depth": 254.0, "width": 76.0, "thickness": 1.9, "lip": 19.0},
+    {"name": "C250.24", "depth": 254.0, "width": 76.0, "thickness": 2.4, "lip": 20.5},
+]
+
 
 # ----- basic helpers ---------------------------------------------------------
 def get_design():
@@ -697,6 +759,291 @@ def _build_rhs_geometry(design, comp, um, cc_len_u,
 
     _apply_rhs_corner_fillets(comp, body, half_w, half_d, inner_w, inner_d, thk_u, thickness_mm)
     return body
+
+
+# ----- UB / PFC / C channel generation ---------------------------------------
+def _section_by_name(sections, name):
+    for section in sections:
+        if section.get("name") == name:
+            return dict(section)
+    return dict(sections[0]) if sections else None
+
+
+def _compact_section_name(name):
+    return (name or "").replace(" ", "")
+
+
+def _pick_largest_profile(sketch):
+    prof = None
+    max_area = -1.0
+    for p in sketch.profiles:
+        try:
+            area = p.areaProperties().area
+        except:
+            continue
+        if area > max_area:
+            max_area = area
+            prof = p
+    return prof
+
+
+def _create_polyline_profile(sketch, points_u):
+    lines = sketch.sketchCurves.sketchLines
+    count = len(points_u)
+    for i in range(count):
+        x1, z1 = points_u[i]
+        x2, z2 = points_u[(i + 1) % count]
+        lines.addByTwoPoints(
+            adsk.core.Point3D.create(x1, z1, 0),
+            adsk.core.Point3D.create(x2, z2, 0),
+        )
+
+
+def _ub_profile_points_mm(section):
+    depth = section["depth"]
+    width = section["width"]
+    flange = section["flange"]
+    web = section["web"]
+    half_d = depth / 2.0
+    half_w = width / 2.0
+    half_web = web / 2.0
+    return [
+        (-half_w, -half_d),
+        (half_w, -half_d),
+        (half_w, -half_d + flange),
+        (half_web, -half_d + flange),
+        (half_web, half_d - flange),
+        (half_w, half_d - flange),
+        (half_w, half_d),
+        (-half_w, half_d),
+        (-half_w, half_d - flange),
+        (-half_web, half_d - flange),
+        (-half_web, -half_d + flange),
+        (-half_w, -half_d + flange),
+    ]
+
+
+def _pfc_profile_points_mm(section):
+    depth = section["depth"]
+    width = section["width"]
+    flange = section["flange"]
+    web = section["web"]
+    half_d = depth / 2.0
+    half_w = width / 2.0
+    left = -half_w
+    right = half_w
+    web_inner = left + web
+    return [
+        (left, -half_d),
+        (right, -half_d),
+        (right, -half_d + flange),
+        (web_inner, -half_d + flange),
+        (web_inner, half_d - flange),
+        (right, half_d - flange),
+        (right, half_d),
+        (left, half_d),
+    ]
+
+
+def _c_channel_profile_points_mm(section):
+    depth = section["depth"]
+    width = section["width"]
+    thickness = section["thickness"]
+    lip = section["lip"]
+    half_d = depth / 2.0
+    half_w = width / 2.0
+    raw = [
+        (0.0, -half_d),
+        (width, -half_d),
+        (width, -half_d + lip),
+        (width - thickness, -half_d + lip),
+        (width - thickness, -half_d + thickness),
+        (thickness, -half_d + thickness),
+        (thickness, half_d - thickness),
+        (width - thickness, half_d - thickness),
+        (width - thickness, half_d - lip),
+        (width, half_d - lip),
+        (width, half_d),
+        (0.0, half_d),
+    ]
+    return [(x - half_w, z) for x, z in raw]
+
+
+def _build_section_geometry(comp, um, cc_len_u, points_mm, extra_mm):
+    sketches = comp.sketches
+    extrudes = comp.features.extrudeFeatures
+
+    points_u = [
+        (
+            um.convert(x, "mm", um.internalUnits),
+            um.convert(z, "mm", um.internalUnits),
+        )
+        for x, z in points_mm
+    ]
+    extra_u = um.convert(extra_mm, "mm", um.internalUnits)
+    length_total_u = cc_len_u + 2 * extra_u
+
+    sk = sketches.add(comp.xZConstructionPlane)
+    _create_polyline_profile(sk, points_u)
+
+    prof = _pick_largest_profile(sk)
+    if not prof:
+        raise RuntimeError("Failed to find section profile.")
+
+    ext_in = extrudes.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+    ext_in.setSymmetricExtent(adsk.core.ValueInput.createByReal(length_total_u), True)
+    ext = extrudes.add(ext_in)
+    return ext.bodies.item(0)
+
+
+def _create_section_for_line(design, root, um, sk_line, idx,
+                             prefix, section, description, points_mm,
+                             extra_mm, angle_deg, include_profile_in_name):
+    sp = sk_line.startSketchPoint.worldGeometry
+    ep = sk_line.endSketchPoint.worldGeometry
+    cc_len_u = sp.distanceTo(ep)
+    if cc_len_u <= 0:
+        return False
+
+    mid = adsk.core.Point3D.create(
+        (sp.x + ep.x) / 2.0,
+        (sp.y + ep.y) / 2.0,
+        (sp.z + ep.z) / 2.0,
+    )
+    y_axis = adsk.core.Vector3D.create(
+        ep.x - sp.x, ep.y - sp.y, ep.z - sp.z,
+    )
+    y_axis.normalize()
+
+    tmp = adsk.core.Vector3D.create(1, 0, 0)
+    if abs(tmp.dotProduct(y_axis)) > 0.99:
+        tmp = adsk.core.Vector3D.create(0, 1, 0)
+    x_base = y_axis.crossProduct(tmp)
+    x_base.normalize()
+    z_base = x_base.crossProduct(y_axis)
+    z_base.normalize()
+
+    mat = create_orientation_matrix(mid, x_base, y_axis, z_base, angle_deg, 0.0)
+    occ = root.occurrences.addNewComponent(mat)
+    comp = occ.component
+
+    comp_name = f"{prefix}{idx}"
+    if include_profile_in_name:
+        comp_name += f"-{_compact_section_name(section.get('name', prefix))}"
+    set_occurrence_component_name(occ, comp, comp_name)
+    _set_component_description(comp, description)
+
+    body = _build_section_geometry(comp, um, cc_len_u, points_mm, extra_mm)
+    _apply_steel_material(comp, body)
+    _apply_steel_color(body)
+    try:
+        ctx.app().activeViewport.refresh()
+    except:
+        pass
+    return True
+
+
+def _generate_section_from_lines(lines, section, extra_mm, angle_deg,
+                                 include_profile_in_name, prefix,
+                                 message_family, description, points_mm):
+    if not lines:
+        ctx.ui().messageBox("Please select at least one sketch line.")
+        return
+
+    design = get_design()
+    root = get_root()
+    um = units_manager()
+    next_idx = find_next_index(design, prefix)
+    created = 0
+
+    for line in lines:
+        if _create_section_for_line(
+            design, root, um, line, next_idx,
+            prefix, section, description, points_mm,
+            extra_mm, angle_deg, include_profile_in_name,
+        ):
+            created += 1
+            next_idx += 1
+
+    ctx.ui().messageBox(f"Created {created} {message_family} components.")
+
+
+def generate_ub_from_lines(lines, section_name, extra_mm, angle_deg,
+                           include_profile_in_name=False):
+    section = _section_by_name(UB_SECTIONS, section_name)
+    if not section:
+        ctx.ui().messageBox("No UB section selected.")
+        return
+    description = _profile_description(
+        "UB",
+        section["depth"],
+        section["width"],
+        section["web"],
+        section["flange"],
+    )
+    _generate_section_from_lines(
+        lines,
+        section,
+        extra_mm,
+        angle_deg,
+        include_profile_in_name,
+        "UB",
+        "UB",
+        description,
+        _ub_profile_points_mm(section),
+    )
+
+
+def generate_pfc_from_lines(lines, section_name, extra_mm, angle_deg,
+                            include_profile_in_name=False):
+    section = _section_by_name(PFC_SECTIONS, section_name)
+    if not section:
+        ctx.ui().messageBox("No PFC section selected.")
+        return
+    description = _profile_description(
+        "PFC",
+        section["depth"],
+        section["width"],
+        section["web"],
+        section["flange"],
+    )
+    _generate_section_from_lines(
+        lines,
+        section,
+        extra_mm,
+        angle_deg,
+        include_profile_in_name,
+        "PFC",
+        "PFC",
+        description,
+        _pfc_profile_points_mm(section),
+    )
+
+
+def generate_c_channel_from_lines(lines, section_name, extra_mm, angle_deg,
+                                  include_profile_in_name=False):
+    section = _section_by_name(C_CHANNEL_SECTIONS, section_name)
+    if not section:
+        ctx.ui().messageBox("No C channel section selected.")
+        return
+    description = _profile_description(
+        "C PURLIN",
+        section["depth"],
+        section["width"],
+        section["lip"],
+        section["thickness"],
+    )
+    _generate_section_from_lines(
+        lines,
+        section,
+        extra_mm,
+        angle_deg,
+        include_profile_in_name,
+        "C",
+        "C channel",
+        description,
+        _c_channel_profile_points_mm(section),
+    )
 
 
 # ----- material & appearance --------------------------------------------------

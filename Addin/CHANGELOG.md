@@ -36,6 +36,7 @@ All notable changes to the Phils Design Tools add-in will be tracked here.
 - Stub Arms Export DXF: export selected stub arm sketch lines to a DXF file containing only line geometry in model coordinates.
 - Normalize Component Structure: normalize mixed and multi-body components by moving direct bodies into child components and aligning single-body names to the parent component.
 - Set Component Descriptions: populate Fusion's Description field from recognised Australian steel profile name patterns for SHS, RHS, CHS, EA, flat bar, and plate members.
+- I Beam From Lines, PFC From Lines, and C Channel From Lines commands for generating common Australian UB, PFC, and lipped C purlin members from sketch lines.
 ### Changed
 - Normalize Component Structure: fixed body conversion and single-body rename handling for nested assembly contexts by resolving bodies through occurrence context and moving them into explicit child components, avoiding Fusion `findObjectPath` internal validation errors.
 - Normalize Component Structure: generic single-body names such as `Body3` now use the parent component name for the new child component/body instead of falling through to Fusion default names like `Component409`.

@@ -3,7 +3,7 @@
 This folder contains the PhilsDesignTools Fusion 360 add-in.
 
 ## What it does
-- Generates EA, SHS, and RHS steel members from sketch lines.
+- Generates EA, SHS, RHS, UB/I Beam, PFC, and C Channel steel members from sketch lines.
 - Provides a rotate tool for generated steel members.
 - Batch renames EA/steel members by selection order without length in the generated name.
 - Exports EA hole locations to CSV and leaf components to multiple CAD file formats.
@@ -14,7 +14,8 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - Ensure the add-in is enabled; it registers commands in the Solid workspace.
 
 ## Commands
-- PhilsDesignTools panel: EA From Lines, SHS From Lines, RHS From Lines, Rotate Steel Member,
+- PhilsDesignTools panel: EA From Lines, SHS From Lines, RHS From Lines,
+  I Beam From Lines, PFC From Lines, C Channel From Lines, Rotate Steel Member,
   Batch Rename, Split Body (Keep Side), Split Body Delete, EA Hole Export CSV,
   Multi Part File Export, New Component Set, Wireframe From Body, Hole Cut From Face,
   Stub Arms To Wall, Stub Arms Export, Stub Arms Export DXF, Stub Arms Set Bracket,
@@ -25,6 +26,9 @@ This folder contains the PhilsDesignTools Fusion 360 add-in.
 - EA From Lines: Select sketch lines, set flange/thickness/extra/holes/angle, choose whether to add the profile suffix to generated names, then OK. Names default to `EA###`; generated components get descriptions like `EA 50 x 50 x 3`.
 - SHS From Lines: Select sketch lines, set size/thickness/extra/angle, choose whether to add the profile suffix to generated names, then OK. Names default to `SHS###`; generated components get descriptions like `SHS 100 x 100 x 3`.
 - RHS From Lines: Select sketch lines, set width/depth/thickness/extra/angle, choose whether to add the profile suffix to generated names, then OK. Names default to `RHS###`; generated components get descriptions like `RHS 100 x 50 x 3`.
+- I Beam From Lines: Select sketch lines, choose a common Australian UB section, set extra/angle, choose whether to add the profile suffix to generated names, then OK. Names default to `UB###`.
+- PFC From Lines: Select sketch lines, choose a common Australian PFC section, set extra/angle, choose whether to add the profile suffix to generated names, then OK. Names default to `PFC###`.
+- C Channel From Lines: Select sketch lines, choose a common Australian lipped C purlin section, set extra/angle, choose whether to add the profile suffix to generated names, then OK. Names default to `C###`.
 - Rotate Steel Member: Select member occurrences, choose 90 or -90, then OK.
 - Batch Rename: Select member occurrences, set prefix/start index/size suffix, then OK; the command now prefers native occurrence renames so Fusion component-asset validation errors do not block normal browser renaming.
 - Remove Length From Names: One-click cleanup to remove only `-####mm-` from existing component and occurrence names, using guarded occurrence/component rename routes for newer Fusion builds.

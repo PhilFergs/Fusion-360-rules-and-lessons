@@ -8,6 +8,7 @@ Ongoing development notes for the Phils Design Tools add-in.
 
 ## 2026-06-12
 - Set Component Descriptions: renamed the visible command to Fix Descriptions and Part Numbers, added a default-on part-number fix pass for leaf components, and kept the existing command ID so resource paths and stale toolbar cleanup remain compatible.
+- Added I Beam From Lines, PFC From Lines, and C Channel From Lines using shared section-profile extrusion helpers and common Australian UB/PFC/lipped C purlin size tables.
 
 ## 2026-06-05
 - Batch Rename: replaced direct occurrence/component name assignment with native occurrence-first guarded rename helpers, so Fusion component-asset `renameObject` internal validation errors are logged but no longer break the batch result dialog.

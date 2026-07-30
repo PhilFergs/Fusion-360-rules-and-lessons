@@ -26,6 +26,9 @@ def run(context):
         import smg_ea as ea_mod
         import smg_shs as shs_mod
         import smg_rhs as rhs_mod
+        import smg_ibeam as ibeam_mod
+        import smg_pfc as pfc_mod
+        import smg_c_channel as c_channel_mod
         import smg_rotate as rot_mod
         import smg_rename as rename_mod
         import smg_split as split_mod
@@ -99,6 +102,9 @@ def run(context):
             "PhilsDesignTools_EA",
             "PhilsDesignTools_SHS",
             "PhilsDesignTools_RHS",
+            "PhilsDesignTools_IBeam",
+            "PhilsDesignTools_PFC",
+            "PhilsDesignTools_CChannel",
             "PhilsDesignTools_Rotate",
             "PhilsDesignTools_EA_BatchRename",
             "PhilsDesignTools_SplitBody",
@@ -141,6 +147,9 @@ def run(context):
         ea_mod.register(ui, panel)
         shs_mod.register(ui, panel)
         rhs_mod.register(ui, panel)
+        ibeam_mod.register(ui, panel)
+        pfc_mod.register(ui, panel)
+        c_channel_mod.register(ui, panel)
         rot_mod.register(ui, panel)
         rename_mod.register(ui, panel)
         split_mod.register(ui, panel)
@@ -180,6 +189,9 @@ def stop(context):
             "PhilsDesignTools_EA",
             "PhilsDesignTools_SHS",
             "PhilsDesignTools_RHS",
+            "PhilsDesignTools_IBeam",
+            "PhilsDesignTools_PFC",
+            "PhilsDesignTools_CChannel",
             "PhilsDesignTools_Rotate",
             "PhilsDesignTools_EA_BatchRename",
             "PhilsDesignTools_SplitBody",

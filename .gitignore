@@ -1,0 +1,10 @@
+.superpowers/
+.venv/
+__pycache__/
+*.py[cod]
+*.log
+*.bak
+*.bak-*
+Addin/tools/installer/_build/
+Addin/tools/dist/
+build/

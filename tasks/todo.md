@@ -1,3 +1,24 @@
+# I Beam PFC C Channel From Lines Tools
+
+Date: 2026-06-12
+
+## Plan
+- [x] Check Australian UB/PFC/C purlin naming and dimension sources
+- [x] Add core profile data and generated geometry for UB, PFC, and lipped C purlin sections
+- [x] Add toolbar commands for I Beam, PFC, and C Channel From Lines
+- [x] Update docs/change notes
+- [x] Run syntax checks and deploy to active Fusion add-in folder
+
+## Verification Notes
+- UB/I Beam source basis: common Australian Universal Beam depth/width/web/flange dimensions.
+- PFC source basis: common Australian Parallel Flange Channel depth/width/web/flange dimensions.
+- C Channel source basis: common lipped C purlin dimensions `h`, `b`, `t`, `c`.
+- New toolbar resource folders were added using the existing SHS icons as placeholders for `IBeam`, `PFC`, and `CChannel`.
+- Repo syntax check passed:
+  - `py -3 -m py_compile Addin/PhilsDesignTools/smg_core.py Addin/PhilsDesignTools/smg_ibeam.py Addin/PhilsDesignTools/smg_pfc.py Addin/PhilsDesignTools/smg_c_channel.py Addin/PhilsDesignTools/PhilsDesignTools.py`
+- Active Fusion add-in backups created with stamp `20260612-145425` for `PhilsDesignTools.py` and `smg_core.py`.
+- Active installed syntax check passed and active files match repo by SHA-256.
+
 # Installer Refresh For 1.0.14
 
 Date: 2026-06-12
