@@ -1,22 +1,22 @@
 import ast
 import copy
-import csv
 import datetime
 import itertools
 import json
 import os
 import plistlib
 import re
-import string
 import sys
 import traceback
-import zipfile
 from datetime import datetime as dt
 from pathlib import Path
 
 import adsk.core
 import adsk.fusion
 
+from philsfusion.commands.design.safety_bridge import confirm_overwrite, show_result
+from philsfusion.services.files import atomic_write_bytes, plan_output_path
+from philsfusion.services.safety import ExecutionResult
 from philsfusion.services.settings import SettingsStore
 
 from .domain import (
@@ -28,6 +28,7 @@ from .domain import (
     item_number_sequence,
     split_name_and_profile,
 )
+from .exporters import build_payload, extension_for_export_type, validate_payload
 from .settings_bridge import BomSettingsBridge
 
 APP = adsk.core.Application.get()
@@ -241,6 +242,18 @@ LIST_SETTINGS_INDENTED = [
 HANDLERS = []
 CUSTOM_COMMAND_DEFINITIONS = []
 
+
+class BomRuntimeCleanup:
+    def __init__(self):
+        self.isValid = True
+
+    def deleteMe(self):
+        if not self.isValid:
+            return
+        self.isValid = False
+        HANDLERS.clear()
+
+
 DEBUG_BOM = True
 _DOCUMENTS = Path(os.path.expanduser("~/Documents"))
 _SETTINGS_BRIDGE = BomSettingsBridge(
@@ -309,19 +322,7 @@ def ConvertQuotes(stringValue):
     return str(stringValue).replace("\"", "'") if stringValue is not None else ""
 
 
-def GetEscapeXML(text):
-    text = "" if text is None else str(text)
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;")
-        .replace("'", "&apos;")
-    )
-
-
 NUMERIC_COLUMNS = {"Quantity", "Volume", "Area", "Mass", "Length", "Width", "Height"}
-NUMERIC_HEADER_BASES = {c.lower() for c in NUMERIC_COLUMNS}
 
 
 def _csv_escape(value, delimiter):
@@ -336,27 +337,6 @@ def _csv_escape(value, delimiter):
 def _csv_cell(value, delimiter, numeric=False):
     return csv_cell(value, delimiter, numeric=numeric)
 
-
-def _header_base(header_value):
-    header = "" if header_value is None else str(header_value)
-    base = header.split("(", 1)[0].strip().lower()
-    return base
-
-
-def _excel_number_string(value):
-    text = "" if value is None else str(value).strip()
-    if not text:
-        return None
-    # Reject ambiguous formats like 1,234.56 or 1.234,56.
-    if "," in text and "." in text:
-        return None
-    normalized = text.replace(",", ".")
-    try:
-        num = float(normalized)
-    except Exception:
-        return None
-    # Excel expects dot-decimal in the XML numeric value.
-    return str(num)
 
 def ConvertDictionaryToString(dataDictionary):
     try:
@@ -1419,161 +1399,6 @@ def GetFilenameBOM(BOMExportFilename, BOMCreationMethod, BOMExportFileType, prev
         return COMMAND_NAME + "-BOM"
 
 
-def ConvertCSVtoXML(csvHeaders, csvRow):
-    s = "\t<row>\n"
-    for header, item in zip(csvHeaders, csvRow, strict=False):
-        s += "\t\t<{}>{}</{}>\n".format(header, item, header)
-    return s + "\t</row>"
-
-
-def ExportXLSX(csvFilePath):
-    try:
-        with open(csvFilePath, newline="", encoding="utf-8") as csvfile:
-            reader = list(csv.reader(csvfile))
-    except Exception:
-        if UI:
-            UI.messageBox("ERROR:\n{}".format(traceback.format_exc()))
-        return
-
-    numeric_indices = set()
-    if reader:
-        headers = reader[0]
-        for idx, header in enumerate(headers):
-            if _header_base(header) in NUMERIC_HEADER_BASES:
-                numeric_indices.add(idx)
-
-    rows_xml = []
-    for row_idx, row in enumerate(reader, 1):
-        cells_xml = []
-        for col_idx, cell_value in enumerate(row, 1):
-            cell_ref = "{}{}".format(chr(64 + col_idx), row_idx)
-            is_header = row_idx == 1
-            is_numeric_col = (col_idx - 1) in numeric_indices
-            if (not is_header) and is_numeric_col:
-                num_text = _excel_number_string(cell_value)
-                if num_text is not None:
-                    cell_xml = '<c r="{}"><v>{}</v></c>'.format(cell_ref, num_text)
-                else:
-                    cell_xml = '<c r="{}" t="inlineStr"><is><t>{}</t></is></c>'.format(
-                        cell_ref, GetEscapeXML(cell_value)
-                    )
-            else:
-                cell_xml = '<c r="{}" t="inlineStr"><is><t>{}</t></is></c>'.format(
-                    cell_ref, GetEscapeXML(cell_value)
-                )
-            cells_xml.append(cell_xml)
-        row_xml = "<row r=\"{}\">{}</row>".format(row_idx, "".join(cells_xml))
-        rows_xml.append(row_xml)
-
-    worksheet_xml = (
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
-        "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
-        "<sheetData>{}</sheetData></worksheet>".format("".join(rows_xml))
-    )
-
-    content_types = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">
-    <Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>
-    <Default Extension=\"xml\" ContentType=\"application/xml\"/>
-    <Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>
-    <Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>
-    <Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>
-    <Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>
-</Types>"""
-
-    rels_rels = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
-    <Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>
-    <Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties\" Target=\"docProps/core.xml\"/>
-    <Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties\" Target=\"docProps/app.xml\"/>
-</Relationships>"""
-
-    workbook_rels = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">
-    <Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>
-</Relationships>"""
-
-    workbook_xml = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">
-    <sheets>
-        <sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/>
-    </sheets>
-</workbook>"""
-
-    core_xml = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:dcmitype=\"http://purl.org/dc/dcmitype/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">
-    <dc:creator>Python</dc:creator>
-    <cp:lastModifiedBy>Python</cp:lastModifiedBy>
-    <dcterms:created xsi:type=\"dcterms:W3CDTF\">2026-01-27T00:00:00Z</dcterms:created>
-    <dcterms:modified xsi:type=\"dcterms:W3CDTF\">2026-01-27T00:00:00Z</dcterms:modified>
-</cp:coreProperties>"""
-
-    app_xml = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\" xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">
-    <Application>Python XLSX Writer</Application>
-</Properties>"""
-
-    xlsxFilePath = csvFilePath.removesuffix(".csv") + ".xlsx"
-    with zipfile.ZipFile(xlsxFilePath, "w", zipfile.ZIP_DEFLATED) as xlsx:
-        xlsx.writestr("[Content_Types].xml", content_types)
-        xlsx.writestr("_rels/.rels", rels_rels)
-        xlsx.writestr("xl/_rels/workbook.xml.rels", workbook_rels)
-        xlsx.writestr("xl/workbook.xml", workbook_xml)
-        xlsx.writestr("xl/worksheets/sheet1.xml", worksheet_xml)
-        xlsx.writestr("docProps/core.xml", core_xml)
-        xlsx.writestr("docProps/app.xml", app_xml)
-
-    if os.path.exists(csvFilePath):
-        os.remove(csvFilePath)
-
-
-def ExportXML(csvFilePath):
-    try:
-        with open(csvFilePath, "r", encoding="utf-8") as csvFile:
-            csvData = csv.reader(csvFile)
-            punct = set(string.punctuation)
-            csvHeaders = []
-            for header in next(csvData):
-                header = "".join(ch for ch in header if ch not in punct)
-                header = header.strip().lower().replace(" ", "_")
-                csvHeaders.append(header)
-
-            xmlData = "<data>\n"
-            for csvRow in csvData:
-                xmlData += ConvertCSVtoXML(csvHeaders, csvRow) + "\n"
-            xmlData += "</data>"
-    except Exception:
-        if UI:
-            UI.messageBox("ERROR:\n{}".format(traceback.format_exc()))
-        return
-
-    xmlFilePath = csvFilePath.removesuffix(".csv") + ".xml"
-    with open(xmlFilePath, "w", encoding="utf-8") as xmlFile:
-        xmlFile.write(xmlData)
-
-    if os.path.exists(csvFilePath):
-        os.remove(csvFilePath)
-
-
-def ExportJSON(csvFilePath):
-    try:
-        jsonArray = []
-        with open(csvFilePath, encoding="utf-8") as csvFile:
-            csvReader = csv.DictReader(csvFile)
-            for row in csvReader:
-                jsonArray.append(row)
-
-        jsonFilePath = csvFilePath.removesuffix(".csv") + ".json"
-        with open(jsonFilePath, "w", encoding="utf-8") as jsonFile:
-            jsonString = json.dumps(jsonArray, indent=4)
-            jsonFile.write(jsonString)
-
-        if os.path.exists(csvFilePath):
-            os.remove(csvFilePath)
-    except Exception:
-        if UI:
-            UI.messageBox("ERROR:\n{}".format(traceback.format_exc()))
-
 def _sort_level_key(level_string):
     parts = str(level_string).rstrip(".").split(".")
     key = []
@@ -1968,7 +1793,13 @@ def CreateBOM():
     if isCancelled:
         return
 
-    filename = newFilename + ".csv"
+    output_extension = extension_for_export_type(settingBOMExportFileType)
+    clean_name = CleanFilename(newFilename)
+    for extension in (".csv", ".xml", ".json", ".xlsx"):
+        if clean_name.casefold().endswith(extension):
+            clean_name = clean_name[: -len(extension)]
+            break
+    filename = clean_name + output_extension
     filePath = os.path.join(folderPath, CleanFilename(filename))
 
     dataDictionary = SettingsGetValueForKey(appSettingsDictionary, "_settingsDictionaryText")
@@ -2149,18 +1980,49 @@ def CreateBOM():
         _log("CreateBOM: empty csv")
         return
 
-    with open(filePath, "w", encoding="utf-8") as output:
-        output.writelines(csvStr)
+    target = Path(filePath)
+    row_count = max(csvStr.count("\n") - 1, 0)
+    if not confirm_overwrite(
+        UI,
+        target,
+        f"Export {row_count} BOM rows as {settingBOMExportFileType}.",
+        command_id="PhilsFusionTools_CreateBOM",
+    ):
+        _log("CreateBOM: cancelled before overwrite")
+        return
 
-    if settingBOMExportFileType == "XLSX (.xlsx)":
-        ExportXLSX(filePath)
-    elif settingBOMExportFileType == "XML (.xml)":
-        ExportXML(filePath)
-    elif settingBOMExportFileType == "JSON (.json)":
-        ExportJSON(filePath)
+    try:
+        payload = build_payload(csvStr, settingBOMExportFileType)
+        plan = plan_output_path(target, overwrite=target.exists())
+        atomic_write_bytes(
+            plan,
+            payload,
+            lambda path: validate_payload(
+                path.read_bytes(),
+                settingBOMExportFileType,
+            ),
+        )
+    except Exception as error:
+        _log("CreateBOM: export failed\n{}".format(traceback.format_exc()))
+        show_result(
+            UI,
+            ExecutionResult(
+                failed=(str(target),),
+                recovery=(
+                    "The previous output was preserved.",
+                    f"Review the BOM log. Error: {error}",
+                ),
+            ),
+            "Phils Fusion Tools BOM",
+        )
+        return
 
-    MessageBox("BOM saved successfully.", 2)
-    _log("CreateBOM: success")
+    show_result(
+        UI,
+        ExecutionResult(succeeded=(f"Saved {row_count} rows to {target}",)),
+        "Phils Fusion Tools BOM",
+    )
+    _log("CreateBOM: success {}".format(target))
 
 
 def SetContextMenu(args):
@@ -2636,7 +2498,10 @@ class CommandExecutedEventHandler(adsk.core.CommandEventHandler):
             cmdDef = command.parentCommandDefinition
             appSettingsDictionary = SettingsLoad()
 
-            if cmdDef.id == COMMAND_ID + "_contextMenuButton2":
+            if cmdDef.id in (
+                "PhilsFusionTools_BOMSettings",
+                COMMAND_ID + "_contextMenuButton2",
+            ):
                 settingsKey = "_BOMCreationMethod"
                 inputBOMCreationMethod = GetCommandForUniqueID(settingsKey, command)
                 SettingsSetValueForKey(appSettingsDictionary, settingsKey, inputBOMCreationMethod.selectedItem.name)

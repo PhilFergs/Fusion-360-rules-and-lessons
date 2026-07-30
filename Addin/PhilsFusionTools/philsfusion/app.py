@@ -8,6 +8,7 @@ import adsk.core
 
 from philsfusion import __version__
 from philsfusion.catalog import SHELL_GROUPS, GroupSpec, build_foundation_registry
+from philsfusion.commands.bom.action import build_bom_actions
 from philsfusion.commands.design import context as design_context
 from philsfusion.commands.design.bindings import build_design_actions
 from philsfusion.fusion.actions import SimpleCommandAction
@@ -136,6 +137,7 @@ class PhilsFusionApplication:
         self._ui = ui
         self._install_root = install_root
         self._build_info = self._load_build_info()
+        self._bom_actions = build_bom_actions()
         self._design_actions = build_design_actions()
         self._lifecycle = Lifecycle(
             adapter=FusionUiAdapter(ui),
@@ -159,6 +161,10 @@ class PhilsFusionApplication:
             design_context.clear_handlers()
 
     def _make_action(self, spec: CommandSpec):
+        bom_action = self._bom_actions.get(spec.handler_key)
+        if bom_action is not None:
+            return bom_action
+
         design_action = self._design_actions.get(spec.handler_key)
         if design_action is not None:
             return design_action

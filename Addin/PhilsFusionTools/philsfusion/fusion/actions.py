@@ -80,16 +80,20 @@ class ModuleCommandAction:
         *,
         legacy_bindings: tuple[str, ...] = (),
         legacy_handler_factory_name: str = "",
+        resource_attribute: str = "RESOURCE_FOLDER",
+        cleanup_factory_name: str = "",
     ) -> None:
         self.module_name = module_name
         self.created_handler_name = created_handler_name
         self.legacy_ids = tuple(legacy_bindings)
         self.legacy_handler_factory_name = legacy_handler_factory_name
+        self.resource_attribute = resource_attribute
+        self.cleanup_factory_name = cleanup_factory_name
 
     def install(self, ui, controls, spec: CommandSpec) -> InstalledCommand:
         module = import_module(self.module_name)
         handler_type = getattr(module, self.created_handler_name)
-        resource_folder = getattr(module, "RESOURCE_FOLDER", "")
+        resource_folder = getattr(module, self.resource_attribute, "")
         legacy_factories = {}
         if self.legacy_handler_factory_name:
             factory_builder = getattr(module, self.legacy_handler_factory_name)
@@ -102,6 +106,10 @@ class ModuleCommandAction:
         handlers = []
 
         try:
+            if self.cleanup_factory_name:
+                cleanup_factory = getattr(module, self.cleanup_factory_name)
+                owned.append(cleanup_factory())
+
             canonical, handler = self._create_definition(
                 ui,
                 spec.command_id,
