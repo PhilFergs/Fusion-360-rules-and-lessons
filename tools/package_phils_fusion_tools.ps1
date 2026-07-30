@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$Foundation,
+    [switch]$Production,
     [switch]$Install
 )
 
@@ -8,19 +9,25 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 if ($Install) {
-    throw "This foundation packager never installs or changes Fusion scan paths."
+    throw "The packager never installs or changes Fusion scan paths."
 }
-if (-not $Foundation) {
-    throw "Specify -Foundation. Production packaging is not enabled yet."
+if ($Foundation -eq $Production) {
+    throw "Specify exactly one of -Foundation or -Production."
 }
 
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $sourceRoot = Join-Path $repoRoot "Addin\PhilsFusionTools"
 $buildRoot = Join-Path $repoRoot "build"
-$stageRoot = Join-Path $buildRoot "_phils-fusion-tools-foundation"
+$artifact = if ($Production) { "production" } else { "foundation" }
+$stageRoot = Join-Path $buildRoot "_phils-fusion-tools-$artifact"
 $stageAddin = Join-Path $stageRoot "PhilsFusionTools"
 $allowlistPath = Join-Path $repoRoot "release\package-allowlist.txt"
-$packageName = "PhilsFusionTools-2.0.0-foundation.zip"
+$packageName = if ($Production) {
+    "PhilsFusionTools-2.0.0.zip"
+}
+else {
+    "PhilsFusionTools-2.0.0-foundation.zip"
+}
 $packagePath = Join-Path $buildRoot $packageName
 $hashPath = "$packagePath.sha256"
 
@@ -121,6 +128,34 @@ foreach ($entry in $runtimeEntries) {
     Copy-Item -LiteralPath $sourcePath -Destination $destinationPath
 }
 
+$python = Join-Path $repoRoot ".venv\Scripts\python.exe"
+if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+    throw "Python quality environment was not found: $python"
+}
+$validator = @'
+import pathlib
+import sys
+from xml.etree import ElementTree
+
+root = pathlib.Path(sys.argv[1])
+for path in root.rglob("*"):
+    if not path.is_file():
+        continue
+    suffix = path.suffix.casefold()
+    if suffix == ".py":
+        compile(path.read_text(encoding="utf-8"), str(path), "exec")
+    elif suffix == ".svg":
+        if not ElementTree.parse(path).getroot().tag.endswith("svg"):
+            raise ValueError(f"invalid SVG root: {path}")
+    elif suffix == ".png":
+        if not path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+            raise ValueError(f"invalid PNG signature: {path}")
+'@
+& $python -c $validator $stageAddin
+if ($LASTEXITCODE -ne 0) {
+    throw "Staged runtime validation failed."
+}
+
 $treeRelativeFiles = @(
     $runtimeEntries |
         ForEach-Object { $_.Substring("PhilsFusionTools/".Length) }
@@ -128,7 +163,7 @@ $treeRelativeFiles = @(
 $treeHash = Get-RuntimeTreeHash -Root $stageAddin -RelativeFiles $treeRelativeFiles
 $buildInfo = [ordered]@{
     version = "2.0.0"
-    artifact = "foundation"
+    artifact = $artifact
     commit = $commit
     built_at_utc = [DateTime]::UtcNow.ToString("o")
     package_tree_hash = $treeHash
@@ -163,6 +198,18 @@ $unexpected = @($archiveNames | Where-Object { $_ -notin $allowedEntries })
 $missing = @($allowedEntries | Where-Object { $_ -notin $archiveNames })
 if ($unexpected.Count -gt 0 -or $missing.Count -gt 0) {
     throw "Package content differs from the allow-list."
+}
+if ($Production) {
+    $legacyRoots = @(
+        $archiveNames |
+            Where-Object {
+                $_.StartsWith("PhilsDesignTools/", [StringComparison]::OrdinalIgnoreCase) -or
+                $_.StartsWith("PhilsBom.bundle/", [StringComparison]::OrdinalIgnoreCase)
+            }
+    )
+    if ($legacyRoots.Count -gt 0) {
+        throw "Production package contains a legacy root."
+    }
 }
 
 $packageHash = (Get-FileHash -LiteralPath $packagePath -Algorithm SHA256).Hash.ToLowerInvariant()

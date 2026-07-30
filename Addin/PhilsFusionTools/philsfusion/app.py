@@ -11,11 +11,15 @@ from philsfusion.catalog import SHELL_GROUPS, GroupSpec, build_foundation_regist
 from philsfusion.commands.bom.action import build_bom_actions
 from philsfusion.commands.design import context as design_context
 from philsfusion.commands.design.bindings import build_design_actions
+from philsfusion.commands.help import AboutDetails, format_about
+from philsfusion.commands.specs import LEGACY_ALIAS_IDS, PUBLIC_COMMAND_IDS
 from philsfusion.fusion.actions import SimpleCommandAction
 from philsfusion.lifecycle import CommandBinding, Lifecycle
 from philsfusion.registry import CommandSpec
 from philsfusion.services.diagnostics import build_diagnostics, format_diagnostics
-from philsfusion.services.settings import SETTINGS_SCHEMA_VERSION
+from philsfusion.services.health import HealthSnapshot, write_health
+from philsfusion.services.logging import OperationalLogger
+from philsfusion.services.settings import SETTINGS_SCHEMA_VERSION, SettingsStore
 
 PANEL_ID = "PhilsFusionToolsPanel"
 PANEL_NAME = "Phils Fusion Tools"
@@ -136,7 +140,11 @@ class PhilsFusionApplication:
         self._app = app
         self._ui = ui
         self._install_root = install_root
+        self._data_root = Path(os.path.expanduser("~/Documents")) / "PhilsFusionTools"
         self._build_info = self._load_build_info()
+        self._logger = OperationalLogger(
+            self._data_root / "logs" / "PhilsFusionTools.log"
+        )
         self._bom_actions = build_bom_actions()
         self._design_actions = build_design_actions()
         self._lifecycle = Lifecycle(
@@ -150,7 +158,31 @@ class PhilsFusionApplication:
         design_context.init(self._app, self._ui)
         try:
             self._lifecycle.start()
-        except Exception:
+            self._write_healthy_snapshot()
+            self._logger.write(
+                "startup",
+                status="healthy",
+                version=__version__,
+                groups=len(SHELL_GROUPS),
+                public_commands=len(PUBLIC_COMMAND_IDS),
+                package_fingerprint=self._build_info.get(
+                    "package_tree_hash",
+                    "development",
+                ),
+            )
+        except Exception as error:
+            if self._lifecycle.is_active:
+                try:
+                    self._lifecycle.stop()
+                except Exception:
+                    pass
+            self._logger.write(
+                "startup",
+                status="failed",
+                version=__version__,
+                error_count=1,
+                detail=type(error).__name__,
+            )
             design_context.clear_handlers()
             raise
 
@@ -159,6 +191,7 @@ class PhilsFusionApplication:
             self._lifecycle.stop()
         finally:
             design_context.clear_handlers()
+            self._logger.write("shutdown", status="stopped", version=__version__)
 
     def _make_action(self, spec: CommandSpec):
         bom_action = self._bom_actions.get(spec.handler_key)
@@ -192,16 +225,26 @@ class PhilsFusionApplication:
         )
 
     def _show_about_migration(self):
-        self._ui.messageBox(
-            "Phils Fusion Tools 2.0\n\n"
-            "Unified BOM, design, fabrication, export, and cleanup tools.\n"
-            "Command migration is in progress in this development build.",
-            "About Phils Fusion Tools",
+        info = self._build_info
+        details = AboutDetails(
+            version=__version__,
+            source_commit=info.get("commit", "development"),
+            package_fingerprint=info.get("package_tree_hash", "development"),
+            public_commands=len(PUBLIC_COMMAND_IDS),
+            compatibility_aliases=len(LEGACY_ALIAS_IDS),
+            settings_migration=self._settings_migration_status(),
+            legacy_quarantine=self._legacy_quarantine_status(),
+            log_folder=str(self._data_root / "logs"),
+            rollback_pointer=str(
+                self._data_root.parent
+                / "PhilsFusionTools-Rollback"
+                / "LATEST-VERIFIED.txt"
+            ),
         )
+        self._ui.messageBox(format_about(details), "About Phils Fusion Tools")
 
     def _show_diagnostics(self):
         info = self._build_info
-        documents = Path(os.path.expanduser("~/Documents"))
         diagnostics = build_diagnostics(
             version=__version__,
             source_commit=info.get("commit", "development"),
@@ -209,10 +252,48 @@ class PhilsFusionApplication:
             install_path=str(self._install_root),
             settings_schema=SETTINGS_SCHEMA_VERSION,
             startup_health="healthy" if self._lifecycle.is_active else "stopped",
-            migration_status=info.get("artifact", "foundation"),
-            log_path=str(documents / "PhilsFusionTools" / "logs" / "PhilsFusionTools.log"),
+            migration_status=self._settings_migration_status(),
+            log_path=str(self._logger.path),
         )
         self._ui.messageBox(format_diagnostics(diagnostics), "Phils Fusion Tools Diagnostics")
+
+    def _write_healthy_snapshot(self):
+        info = self._build_info
+        snapshot = HealthSnapshot(
+            status="healthy",
+            version=__version__,
+            source_commit=info.get("commit", "development"),
+            package_fingerprint=info.get("package_tree_hash", "development"),
+            groups=len(SHELL_GROUPS),
+            public_commands=len(PUBLIC_COMMAND_IDS),
+            compatibility_aliases=len(LEGACY_ALIAS_IDS),
+            settings_migration=self._settings_migration_status(),
+            startup_errors=(),
+        )
+        write_health(self._data_root / "health.json", snapshot)
+
+    def _settings_migration_status(self):
+        settings = SettingsStore(self._data_root / "settings.json").load()
+        bom_migration = settings.get("migration", {}).get("bom", {})
+        return bom_migration.get("status", "not-started")
+
+    def _legacy_quarantine_status(self):
+        transactions = self._data_root / "MigrationTransactions"
+        if transactions.is_dir():
+            for state_path in sorted(
+                transactions.glob("*/state.json"),
+                reverse=True,
+            ):
+                try:
+                    state = json.loads(state_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                status = state.get("status")
+                if status:
+                    return str(status).replace("_", " ")
+        if (self._data_root / "LegacyArchive").is_dir():
+            return "archived"
+        return "not started"
 
     def _load_build_info(self):
         path = self._install_root / "build-info.json"

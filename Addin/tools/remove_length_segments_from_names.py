@@ -4,7 +4,6 @@ import traceback
 import adsk.core
 import adsk.fusion
 
-
 LENGTH_SEGMENT_RE = re.compile(r"-(\d+(?:\.\d+)?)mm-", re.IGNORECASE)
 
 
@@ -71,7 +70,7 @@ def run(context):
         if ui:
             ui.messageBox(summary)
 
-    except:
+    except Exception:
         if ui:
             ui.messageBox("Script failed:\n" + traceback.format_exc())
 
