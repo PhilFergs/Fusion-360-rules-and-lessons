@@ -132,26 +132,8 @@ $python = Join-Path $repoRoot ".venv\Scripts\python.exe"
 if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
     throw "Python quality environment was not found: $python"
 }
-$validator = @'
-import pathlib
-import sys
-from xml.etree import ElementTree
-
-root = pathlib.Path(sys.argv[1])
-for path in root.rglob("*"):
-    if not path.is_file():
-        continue
-    suffix = path.suffix.casefold()
-    if suffix == ".py":
-        compile(path.read_text(encoding="utf-8"), str(path), "exec")
-    elif suffix == ".svg":
-        if not ElementTree.parse(path).getroot().tag.endswith("svg"):
-            raise ValueError(f"invalid SVG root: {path}")
-    elif suffix == ".png":
-        if not path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
-            raise ValueError(f"invalid PNG signature: {path}")
-'@
-& $python -c $validator $stageAddin
+$validator = Join-Path $repoRoot "tools\validate_runtime.py"
+& $python $validator $stageAddin
 if ($LASTEXITCODE -ne 0) {
     throw "Staged runtime validation failed."
 }
@@ -183,7 +165,11 @@ foreach ($oldArtifact in @($packagePath, $hashPath)) {
     }
 }
 
-Compress-Archive -LiteralPath $stageAddin -DestinationPath $packagePath -CompressionLevel Optimal
+$zipBuilder = Join-Path $repoRoot "tools\build_runtime_zip.py"
+& $python $zipBuilder $stageAddin $packagePath
+if ($LASTEXITCODE -ne 0) {
+    throw "Production archive creation failed."
+}
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [IO.Compression.ZipFile]::OpenRead($packagePath)
