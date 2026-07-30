@@ -121,6 +121,19 @@ Describe "Phils Fusion Tools transactional installer" {
         }
     }
 
+    It "resolves production artifact defaults after parameter binding" {
+        $environment = New-TestEnvironment "default-artifacts"
+
+        & $installer `
+            -AppDataRoot $environment.AppData `
+            -DocumentsRoot $environment.Documents `
+            -RollbackPointer $environment.Pointer `
+            -ObservedProcessNames @() | Out-Null
+
+        Test-Path -LiteralPath (Join-Path $environment.AddIns "PhilsFusionTools") |
+            Should Be $true
+    }
+
     It "quarantines every configured legacy path and leaves one manifest" {
         $environment = New-TestEnvironment "quarantine"
 

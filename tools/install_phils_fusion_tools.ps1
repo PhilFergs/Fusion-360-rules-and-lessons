@@ -1,16 +1,36 @@
 [CmdletBinding()]
 param(
-    [string]$PackagePath = (Join-Path $PSScriptRoot "..\build\PhilsFusionTools-2.0.0.zip"),
-    [string]$HashPath = "$PackagePath.sha256",
-    [string]$AllowlistPath = (Join-Path $PSScriptRoot "..\release\package-allowlist.txt"),
+    [string]$PackagePath,
+    [string]$HashPath,
+    [string]$AllowlistPath,
     [string]$AppDataRoot = $env:APPDATA,
-    [string]$DocumentsRoot = (Join-Path $env:USERPROFILE "Documents"),
-    [string]$RollbackPointer = (Join-Path $DocumentsRoot "PhilsFusionTools-Rollback\LATEST-VERIFIED.txt"),
+    [string]$DocumentsRoot,
+    [string]$RollbackPointer,
     [AllowNull()][string[]]$ObservedProcessNames = $null
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+# PSScriptRoot is reliable only after script parameter binding in Windows PowerShell 5.1.
+if (-not $PackagePath) {
+    $PackagePath = Join-Path $PSScriptRoot "..\build\PhilsFusionTools-2.0.0.zip"
+}
+if (-not $HashPath) {
+    $HashPath = "$PackagePath.sha256"
+}
+if (-not $AllowlistPath) {
+    $AllowlistPath = Join-Path $PSScriptRoot "..\release\package-allowlist.txt"
+}
+if (-not $DocumentsRoot) {
+    $DocumentsRoot = Join-Path $env:USERPROFILE "Documents"
+}
+if (-not $RollbackPointer) {
+    $RollbackPointer = Join-Path $DocumentsRoot (
+        "PhilsFusionTools-Rollback\LATEST-VERIFIED.txt"
+    )
+}
+
 Import-Module (Join-Path $PSScriptRoot "PhilsFusionTools.Transaction.psm1") -Force
 
 if ($PSBoundParameters.ContainsKey("ObservedProcessNames") -and
