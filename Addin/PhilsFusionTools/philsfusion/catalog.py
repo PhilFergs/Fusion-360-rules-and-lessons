@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from philsfusion.registry import CommandRegistry, CommandSpec, RiskLevel
+from philsfusion.commands.specs import build_command_registry
 
 
 @dataclass(frozen=True, slots=True)
@@ -12,33 +12,20 @@ class GroupSpec:
 
 
 SHELL_GROUPS = (
-    GroupSpec("BOM", "PhilsFusionTools_BOM", "Bill of materials tools", False),
-    GroupSpec("Create", "PhilsFusionTools_Create", "Create structural components", False),
-    GroupSpec("Modify", "PhilsFusionTools_Modify", "Modify and organize components", False),
+    GroupSpec("BOM", "PhilsFusionTools_BOM", "Bill of materials tools", True),
+    GroupSpec("Create", "PhilsFusionTools_Create", "Create structural components", True),
+    GroupSpec("Modify", "PhilsFusionTools_Modify", "Modify and organize components", True),
     GroupSpec(
         "Fabricate",
         "PhilsFusionTools_Fabricate",
         "Prepare fabrication information",
-        False,
+        True,
     ),
-    GroupSpec("Export", "PhilsFusionTools_Export", "Export fabrication files", False),
-    GroupSpec("Cleanup", "PhilsFusionTools_Cleanup", "Clean and normalize designs", False),
+    GroupSpec("Export", "PhilsFusionTools_Export", "Export fabrication files", True),
+    GroupSpec("Cleanup", "PhilsFusionTools_Cleanup", "Clean and normalize designs", True),
     GroupSpec("Help", "PhilsFusionTools_Help", "Diagnostics and support", True),
 )
 
 
-def build_foundation_registry() -> CommandRegistry:
-    registry = CommandRegistry()
-    registry.register(
-        CommandSpec(
-            command_id="PhilsFusionTools_Diagnostics",
-            name="Diagnostics",
-            tooltip="Show installation and startup diagnostics",
-            group="Help",
-            order=10,
-            resource_key="diagnostics",
-            handler_key="diagnostics",
-            risk=RiskLevel.ROUTINE,
-        )
-    )
-    return registry
+def build_foundation_registry():
+    return build_command_registry()

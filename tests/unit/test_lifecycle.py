@@ -74,7 +74,9 @@ def test_start_stop_start_does_not_duplicate_controls():
         "PhilsFusionTools_Cleanup",
         "PhilsFusionTools_Help",
     }
-    assert fake_ui.retained_handler_count == 1
+    assert fake_ui.retained_handler_count == len(
+        build_foundation_registry().ordered()
+    )
     assert lifecycle.is_active is True
 
 
@@ -109,4 +111,3 @@ def test_failed_start_rolls_back_every_created_group():
     assert fake_ui.visible_control_ids == set()
     assert fake_ui.retained_handler_count == 0
     assert lifecycle.is_active is False
-
