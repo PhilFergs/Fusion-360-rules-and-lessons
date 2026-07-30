@@ -6,15 +6,15 @@ Verified on Windows on 2026-07-30.
 
 - Package: `build\PhilsFusionTools-2.0.0.zip`
 - Package SHA-256:
-  `0b5d2eaa739b16f03a81cbaa64cb342ed79b9fed3d28b41bde73fe6fa62b4ef8`
-- Runtime source commit: `c71f6e1c49f9a91afa8a73d01eef781300cbfb3d`
+  `65663cb09515e235f49e74032edd7630611a10e254fbb6e90d3ad7909ba8583d`
+- Runtime source commit: `b1635bced0194a504750e770033f0458e682d925`
 - Runtime tree SHA-256:
-  `2b36c5d354bdb12987b2564cc68a1deb9065bed7e082daf368ff37699ab123b6`
-- Production archive entries: 160
+  `1862e6f1db5c8122416f2c0daf6cccd27a641cb5ead830eb6be36eea1ee65446`
+- Production archive entries: 161
 
 ## Automated Gate
 
-- Pytest: 104 passed.
+- Pytest: 109 passed.
 - Ruff: passed.
 - Python compile validation: passed.
 - Git whitespace validation: passed.
@@ -76,6 +76,25 @@ The first real invocation exposed two gaps that isolated tests had not modeled:
 Regression tests were added before each repair. The failed transaction was
 rolled back with all six legacy paths restored, the repaired package was built,
 and a new transaction then passed live startup and finalization.
+
+User testing then exposed a Fusion metadata behavior change: Part Number and
+Description setters can return without an exception while an unsaved internal
+component has not yet been registered with Fusion's cloud metadata service.
+The command now:
+
+1. Refuses to run until the design and latest component changes are saved.
+2. Explains that the user must save, wait for sync, and rerun.
+3. Reads every property back before incrementing a success count.
+4. Reports a visible verification failure if Fusion does not persist a value.
+
+The corrected package passed a second transactional upgrade:
+
+- Upgrade transaction:
+  `C:\Users\phil9\Documents\PhilsFusionTools\MigrationTransactions\20260730-130630-0a772a1f`
+- Preserved prior unified install:
+  `C:\Users\phil9\Documents\PhilsFusionTools\LegacyArchive\20260730-130630-0a772a1f`
+- Upgrade receipt SHA-256:
+  `5654245e1e881414c21d757ccc06f044937c764a44b705e94a17d359d9f6768f`
 
 ## Residual Scope
 

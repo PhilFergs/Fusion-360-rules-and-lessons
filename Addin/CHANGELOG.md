@@ -34,6 +34,12 @@ All notable changes to the Phils Fusion Tools add-in are tracked here.
   startup testing.
 - Made transaction rollback ignore only Python-generated cache files while
   retaining source/resource integrity checks.
+- Prevented Fix Descriptions And Part Numbers from reporting success when
+  Fusion silently rejects cloud-managed metadata writes. The command now
+  requires saved design changes and verifies every Part Number and Description
+  by immediate read-back.
+- Made production packaging fail when any runtime source file is missing from
+  the exact package allowlist.
 
 ## Unreleased
 ### Added
