@@ -14,6 +14,7 @@ DESIGN_ROOT = (
 
 EXPECTED_MODULES = {
     "__init__.py",
+    "bindings.py",
     "bulk_replace_components.py",
     "component_set.py",
     "context.py",

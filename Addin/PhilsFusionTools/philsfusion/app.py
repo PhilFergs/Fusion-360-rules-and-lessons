@@ -8,6 +8,8 @@ import adsk.core
 
 from philsfusion import __version__
 from philsfusion.catalog import SHELL_GROUPS, GroupSpec, build_foundation_registry
+from philsfusion.commands.design import context as design_context
+from philsfusion.commands.design.bindings import build_design_actions
 from philsfusion.fusion.actions import SimpleCommandAction
 from philsfusion.lifecycle import CommandBinding, Lifecycle
 from philsfusion.registry import CommandSpec
@@ -129,10 +131,12 @@ class FusionUiAdapter:
 
 
 class PhilsFusionApplication:
-    def __init__(self, ui, install_root: Path):
+    def __init__(self, app, ui, install_root: Path):
+        self._app = app
         self._ui = ui
         self._install_root = install_root
         self._build_info = self._load_build_info()
+        self._design_actions = build_design_actions()
         self._lifecycle = Lifecycle(
             adapter=FusionUiAdapter(ui),
             registry=build_foundation_registry(),
@@ -141,12 +145,24 @@ class PhilsFusionApplication:
         )
 
     def start(self):
-        self._lifecycle.start()
+        design_context.init(self._app, self._ui)
+        try:
+            self._lifecycle.start()
+        except Exception:
+            design_context.clear_handlers()
+            raise
 
     def stop(self):
-        self._lifecycle.stop()
+        try:
+            self._lifecycle.stop()
+        finally:
+            design_context.clear_handlers()
 
     def _make_action(self, spec: CommandSpec):
+        design_action = self._design_actions.get(spec.handler_key)
+        if design_action is not None:
+            return design_action
+
         callbacks = {
             "help.diagnostics": self._show_diagnostics,
             "help.about_migration": self._show_about_migration,
@@ -208,4 +224,4 @@ def create_application():
     if app is None or app.userInterface is None:
         raise RuntimeError("Fusion user interface is unavailable")
     install_root = Path(__file__).resolve().parents[1]
-    return PhilsFusionApplication(app.userInterface, install_root)
+    return PhilsFusionApplication(app, app.userInterface, install_root)

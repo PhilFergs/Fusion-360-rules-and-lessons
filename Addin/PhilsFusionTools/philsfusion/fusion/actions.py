@@ -79,15 +79,25 @@ class ModuleCommandAction:
         created_handler_name: str,
         *,
         legacy_bindings: tuple[str, ...] = (),
+        legacy_handler_factory_name: str = "",
     ) -> None:
         self.module_name = module_name
         self.created_handler_name = created_handler_name
         self.legacy_ids = tuple(legacy_bindings)
+        self.legacy_handler_factory_name = legacy_handler_factory_name
 
     def install(self, ui, controls, spec: CommandSpec) -> InstalledCommand:
         module = import_module(self.module_name)
         handler_type = getattr(module, self.created_handler_name)
         resource_folder = getattr(module, "RESOURCE_FOLDER", "")
+        legacy_factories = {}
+        if self.legacy_handler_factory_name:
+            factory_builder = getattr(module, self.legacy_handler_factory_name)
+            legacy_factories = factory_builder()
+            missing = set(self.legacy_ids) - set(legacy_factories)
+            if missing:
+                missing_text = ", ".join(sorted(missing))
+                raise ValueError(f"missing legacy handler factories: {missing_text}")
         owned = []
         handlers = []
 
@@ -113,7 +123,7 @@ class ModuleCommandAction:
                     spec.name,
                     spec.tooltip,
                     resource_folder,
-                    handler_type,
+                    legacy_factories.get(legacy_id, handler_type),
                 )
                 owned.append(legacy)
                 handlers.append(legacy_handler)
@@ -134,7 +144,7 @@ class ModuleCommandAction:
         name: str,
         tooltip: str,
         resource_folder: str,
-        handler_type,
+        handler_factory,
     ):
         stale = ui.commandDefinitions.itemById(command_id)
         _delete_owned(stale)
@@ -146,7 +156,7 @@ class ModuleCommandAction:
             resource_folder,
         )
         try:
-            handler = handler_type()
+            handler = handler_factory()
             definition.commandCreated.add(handler)
             return definition, handler
         except Exception:
