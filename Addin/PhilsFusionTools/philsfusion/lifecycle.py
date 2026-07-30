@@ -4,8 +4,8 @@ from typing import Any, Protocol
 from philsfusion.catalog import GroupSpec
 from philsfusion.registry import CommandRegistry, CommandSpec
 
-CommandCallback = Callable[[], None]
-CommandBinding = tuple[CommandSpec, CommandCallback]
+CommandAction = object
+CommandBinding = tuple[CommandSpec, CommandAction]
 
 
 class UiRegistration(Protocol):
@@ -29,7 +29,7 @@ class Lifecycle:
         adapter: UiAdapter,
         registry: CommandRegistry,
         groups: Iterable[GroupSpec],
-        handler_factory: Callable[[CommandSpec], CommandCallback],
+        handler_factory: Callable[[CommandSpec], CommandAction],
     ) -> None:
         self._adapter = adapter
         self._registry = registry

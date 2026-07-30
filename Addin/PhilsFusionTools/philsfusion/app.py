@@ -8,6 +8,7 @@ import adsk.core
 
 from philsfusion import __version__
 from philsfusion.catalog import SHELL_GROUPS, GroupSpec, build_foundation_registry
+from philsfusion.fusion.actions import SimpleCommandAction
 from philsfusion.lifecycle import CommandBinding, Lifecycle
 from philsfusion.registry import CommandSpec
 from philsfusion.services.diagnostics import build_diagnostics, format_diagnostics
@@ -89,23 +90,9 @@ class FusionUiAdapter:
             owned.append(group_control)
 
             for spec, callback in command_bindings:
-                stale_definition = self._ui.commandDefinitions.itemById(spec.command_id)
-                _delete_fusion_object(stale_definition)
-
-                command_definition = self._ui.commandDefinitions.addButtonDefinition(
-                    spec.command_id,
-                    spec.name,
-                    spec.tooltip,
-                    self._resource_folder(spec.resource_key),
-                )
-                owned.append(command_definition)
-
-                handler = _CommandCreatedHandler(callback)
-                command_definition.commandCreated.add(handler)
-                handlers.append(handler)
-
-                command_control = group_control.controls.addCommand(command_definition)
-                owned.append(command_control)
+                installed = callback.install(self._ui, group_control.controls, spec)
+                owned.extend(installed.owned_objects)
+                handlers.extend(installed.handler_refs)
 
             return _FusionRegistration(tuple(owned), tuple(handlers))
         except Exception:
@@ -150,7 +137,7 @@ class PhilsFusionApplication:
             adapter=FusionUiAdapter(ui),
             registry=build_foundation_registry(),
             groups=SHELL_GROUPS,
-            handler_factory=self._make_handler,
+            handler_factory=self._make_action,
         )
 
     def start(self):
@@ -159,10 +146,36 @@ class PhilsFusionApplication:
     def stop(self):
         self._lifecycle.stop()
 
-    def _make_handler(self, spec: CommandSpec):
-        if spec.handler_key == "diagnostics":
-            return self._show_diagnostics
-        raise KeyError(f"unsupported command handler: {spec.handler_key}")
+    def _make_action(self, spec: CommandSpec):
+        callbacks = {
+            "help.diagnostics": self._show_diagnostics,
+            "help.about_migration": self._show_about_migration,
+        }
+        action_callback = callbacks.get(spec.handler_key)
+        if action_callback is None:
+            def migration_callback():
+                self._show_migration_pending(spec)
+
+            action_callback = migration_callback
+        return SimpleCommandAction(
+            action_callback,
+            handler_factory=_CommandCreatedHandler,
+            resource_folder=FusionUiAdapter._resource_folder(spec.resource_key),
+        )
+
+    def _show_migration_pending(self, spec: CommandSpec):
+        self._ui.messageBox(
+            f"{spec.name} is being migrated into Phils Fusion Tools 2.0.",
+            "Phils Fusion Tools",
+        )
+
+    def _show_about_migration(self):
+        self._ui.messageBox(
+            "Phils Fusion Tools 2.0\n\n"
+            "Unified BOM, design, fabrication, export, and cleanup tools.\n"
+            "Command migration is in progress in this development build.",
+            "About Phils Fusion Tools",
+        )
 
     def _show_diagnostics(self):
         info = self._build_info
