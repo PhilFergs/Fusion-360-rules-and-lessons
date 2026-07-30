@@ -1,6 +1,39 @@
 # CHANGELOG
 
-All notable changes to the Phils Design Tools add-in will be tracked here.
+All notable changes to the Phils Fusion Tools add-in are tracked here.
+
+## 2.0.0 - 2026-07-30
+### Added
+- Unified Phils BOM and Phils Design Tools into one Windows add-in named
+  Phils Fusion Tools.
+- Seven grouped toolbar menus with 25 public commands and consistent icons.
+- One profile-aware Create Steel Member dialog for EA, SHS, RHS, UB/I Beam,
+  PFC, and C Channel members.
+- Diagnostics, startup health, bounded operational logging, and an
+  About And Migration view.
+- Versioned atomic settings with conservative migration from the legacy BOM
+  preferences.
+- Deterministic, allowlisted production packaging and a transactional Windows
+  installer with verified rollback and finalization receipts.
+- Hidden compatibility aliases for 29 legacy command IDs.
+
+### Changed
+- BOM CSV, XML, JSON, and XLSX outputs are validated in memory and promoted
+  atomically.
+- Destructive and bulk operations use balanced preflight summaries; export
+  overwrite prompts appear only when the destination already exists.
+- Legacy add-in copies are archived outside Fusion scan paths only after a
+  matching healthy startup report.
+
+### Fixed
+- Corrected the custom BOM item-number digit matcher.
+- Corrected the BOM Settings command binding.
+- Removed duplicate converter write/delete paths and consolidated lifecycle
+  ownership.
+- Added an explicit application/settings schema contract caught by live Fusion
+  startup testing.
+- Made transaction rollback ignore only Python-generated cache files while
+  retaining source/resource integrity checks.
 
 ## Unreleased
 ### Added
