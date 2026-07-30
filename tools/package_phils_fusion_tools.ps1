@@ -111,6 +111,26 @@ Remove-CheckedTree -LiteralPath $stageRoot -AllowedParent $buildRoot
 New-Item -ItemType Directory -Path $stageAddin -Force | Out-Null
 
 $runtimeEntries = @($allowedEntries | Where-Object { $_ -ne $buildInfoEntry })
+$sourceEntries = @(
+    Get-ChildItem -LiteralPath $sourceRoot -File -Recurse |
+        Where-Object {
+            $_.Extension -notin @(".pyc", ".log") -and
+            $_.FullName -notmatch "[\\/]__pycache__[\\/]"
+        } |
+        ForEach-Object {
+            $relative = $_.FullName.Substring($sourceRoot.Length + 1).Replace("\", "/")
+            "PhilsFusionTools/$relative"
+        }
+)
+$unlistedSource = @($sourceEntries | Where-Object { $_ -notin $runtimeEntries })
+if ($unlistedSource.Count -gt 0) {
+    throw "Runtime source is missing from the package allow-list: $($unlistedSource -join ', ')"
+}
+$missingSource = @($runtimeEntries | Where-Object { $_ -notin $sourceEntries })
+if ($missingSource.Count -gt 0) {
+    throw "Package allow-list references missing runtime source: $($missingSource -join ', ')"
+}
+
 foreach ($entry in $runtimeEntries) {
     if (-not $entry.StartsWith("PhilsFusionTools/", [StringComparison]::Ordinal)) {
         throw "Allow-list entry is outside the package root: $entry"

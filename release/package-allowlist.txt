@@ -133,6 +133,7 @@ PhilsFusionTools/philsfusion/fusion/actions.py
 PhilsFusionTools/philsfusion/lifecycle.py
 PhilsFusionTools/philsfusion/registry.py
 PhilsFusionTools/philsfusion/services/__init__.py
+PhilsFusionTools/philsfusion/services/component_properties.py
 PhilsFusionTools/philsfusion/services/diagnostics.py
 PhilsFusionTools/philsfusion/services/files.py
 PhilsFusionTools/philsfusion/services/health.py

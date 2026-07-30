@@ -8,6 +8,16 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_PATH = ROOT / "build" / "PhilsFusionTools-2.0.0.zip"
 HASH_PATH = PACKAGE_PATH.with_suffix(PACKAGE_PATH.suffix + ".sha256")
+ADDIN_ROOT = ROOT / "Addin" / "PhilsFusionTools"
+ALLOWLIST_PATH = ROOT / "release" / "package-allowlist.txt"
+
+
+def _allowlist():
+    return {
+        line.strip()
+        for line in ALLOWLIST_PATH.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
 
 
 @pytest.fixture
@@ -30,11 +40,7 @@ def test_package_contains_only_runtime_files(production_package):
 
 
 def test_package_matches_allowlist_and_embeds_build_identity(production_package):
-    allowlist = {
-        line.strip()
-        for line in (ROOT / "release" / "package-allowlist.txt").read_text().splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    }
+    allowlist = _allowlist()
 
     with zipfile.ZipFile(production_package) as archive:
         names = set(archive.namelist())
@@ -47,6 +53,18 @@ def test_package_matches_allowlist_and_embeds_build_identity(production_package)
     assert build_info["artifact"] == "production"
     assert len(build_info["commit"]) == 40
     assert len(build_info["package_tree_hash"]) == 64
+
+
+def test_allowlist_covers_every_runtime_source_file():
+    source_files = {
+        f"PhilsFusionTools/{path.relative_to(ADDIN_ROOT).as_posix()}"
+        for path in ADDIN_ROOT.rglob("*")
+        if path.is_file()
+        and "__pycache__" not in path.parts
+        and path.suffix not in {".pyc", ".log"}
+    }
+
+    assert _allowlist() - {"PhilsFusionTools/build-info.json"} == source_files
 
 
 def test_package_sidecar_hash_matches_archive(production_package):
