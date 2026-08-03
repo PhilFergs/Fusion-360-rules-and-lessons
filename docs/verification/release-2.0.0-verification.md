@@ -6,15 +6,15 @@ Verified on Windows on 2026-07-30.
 
 - Package: `build\PhilsFusionTools-2.0.0.zip`
 - Package SHA-256:
-  `65663cb09515e235f49e74032edd7630611a10e254fbb6e90d3ad7909ba8583d`
-- Runtime source commit: `b1635bced0194a504750e770033f0458e682d925`
+  `9c12f8c37d28685d6c5017c22dbe17419b1ebe9ecfc78802ff3a4a622c8a4e7d`
+- Runtime source commit: `ba61c0f913508716f62c07651bd969ee4ec359bc`
 - Runtime tree SHA-256:
-  `1862e6f1db5c8122416f2c0daf6cccd27a641cb5ead830eb6be36eea1ee65446`
+  `2128386b2a312f86a964f8c16d0e1cb4d30d50a781786b301f48371a380a2980`
 - Production archive entries: 161
 
 ## Automated Gate
 
-- Pytest: 109 passed.
+- Pytest: 114 passed.
 - Ruff: passed.
 - Python compile validation: passed.
 - Git whitespace validation: passed.
@@ -95,6 +95,24 @@ The corrected package passed a second transactional upgrade:
   `C:\Users\phil9\Documents\PhilsFusionTools\LegacyArchive\20260730-130630-0a772a1f`
 - Upgrade receipt SHA-256:
   `5654245e1e881414c21d757ccc06f044937c764a44b705e94a17d359d9f6768f`
+
+Further live testing on 2026-08-03 exposed Fusion-generated timestamp part
+numbers and a cloud registration race. In the test design, `PFC1` initially
+showed `2026-08-03-08-00-44-487`. The repaired command waits until every target
+component has cloud metadata, then applies the simplified component name and
+verifies read-back. The live result changed `PFC1` to `PFC1`, set three delayed
+part numbers, and reported zero part-number failures. A transient `EA1`
+Description write then succeeded on retry; the next live run reported one
+description set, zero description failures, and all six part numbers matched.
+
+The final Windows upgrade passed startup health and was finalized:
+
+- Upgrade transaction:
+  `C:\Users\phil9\Documents\PhilsFusionTools\MigrationTransactions\20260803-084617-d71ceb82`
+- Preserved prior unified install:
+  `C:\Users\phil9\Documents\PhilsFusionTools\LegacyArchive\20260803-084617-d71ceb82`
+- Upgrade receipt SHA-256:
+  `7dbfe3c28599c977748c2cbf2dd8fa9b19b21a89fc7255c0e5e96959a97ba2fe`
 
 ## Residual Scope
 
