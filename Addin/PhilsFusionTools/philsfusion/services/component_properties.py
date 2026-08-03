@@ -130,26 +130,44 @@ def set_string_property_verified(
     target: Any,
     attribute: str,
     value: str,
+    *,
+    attempts: int = 1,
+    retry_seconds: float = 0.0,
+    sleep: Callable[[float], None] = time.sleep,
+    event_pump: Callable[[], None] | None = None,
 ) -> PropertyWriteResult:
     expected = str(value)
-    try:
-        setattr(target, attribute, expected)
-    except Exception as error:
-        return PropertyWriteResult(False, "", str(error))
+    max_attempts = max(1, int(attempts))
+    retry_delay = max(0.0, float(retry_seconds))
+    result = PropertyWriteResult(False, "", "write was not attempted")
 
-    try:
-        observed = str(getattr(target, attribute) or "")
-    except Exception as error:
-        return PropertyWriteResult(
-            False,
-            "",
-            f"write completed but read-back failed: {error}",
-        )
+    for attempt in range(max_attempts):
+        try:
+            setattr(target, attribute, expected)
+        except Exception as error:
+            result = PropertyWriteResult(False, "", str(error))
+        else:
+            try:
+                observed = str(getattr(target, attribute) or "")
+            except Exception as error:
+                result = PropertyWriteResult(
+                    False,
+                    "",
+                    f"write completed but read-back failed: {error}",
+                )
+            else:
+                if observed == expected:
+                    return PropertyWriteResult(True, observed, "")
+                result = PropertyWriteResult(
+                    False,
+                    observed,
+                    f"value did not persist (read back {observed!r})",
+                )
 
-    if observed != expected:
-        return PropertyWriteResult(
-            False,
-            observed,
-            f"value did not persist (read back {observed!r})",
-        )
-    return PropertyWriteResult(True, observed, "")
+        if attempt + 1 < max_attempts:
+            if event_pump:
+                event_pump()
+            if retry_delay:
+                sleep(retry_delay)
+
+    return result

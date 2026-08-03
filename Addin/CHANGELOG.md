@@ -42,7 +42,8 @@ All notable changes to the Phils Fusion Tools add-in are tracked here.
   part numbers such as `2026-08-03-08-00-44-487`. The command now waits for
   every target component's cloud metadata registration before writing, keeps
   simplified names such as `PFC1` as the part number, and makes no changes if
-  metadata readiness times out.
+  metadata readiness times out. Transient cloud write failures are retried and
+  the metadata progress window is explicitly dismissed before results appear.
 - Made production packaging fail when any runtime source file is missing from
   the exact package allowlist.
 

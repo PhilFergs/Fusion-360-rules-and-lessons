@@ -21,6 +21,23 @@ class PropertyTarget:
             self._description = value
 
 
+class TransientPropertyTarget:
+    def __init__(self, failures_before_persisting):
+        self._description = ""
+        self.failures_before_persisting = failures_before_persisting
+        self.write_attempts = 0
+
+    @property
+    def description(self):
+        return self._description
+
+    @description.setter
+    def description(self, value):
+        self.write_attempts += 1
+        if self.write_attempts > self.failures_before_persisting:
+            self._description = value
+
+
 class Document:
     def __init__(self, *, saved, modified):
         self.isSaved = saved
@@ -71,6 +88,25 @@ def test_verified_property_write_rejects_silent_fusion_failure():
     assert result.persisted is False
     assert result.observed == ""
     assert "did not persist" in result.error
+
+
+def test_verified_property_write_retries_a_transient_cloud_failure():
+    target = TransientPropertyTarget(failures_before_persisting=2)
+    timer = FakeTime()
+
+    result = set_string_property_verified(
+        target,
+        "description",
+        "EA 50 x 50 x 3",
+        attempts=3,
+        retry_seconds=1,
+        sleep=timer.sleep,
+    )
+
+    assert result.persisted is True
+    assert result.observed == "EA 50 x 50 x 3"
+    assert target.write_attempts == 3
+    assert timer.now == 2
 
 
 def test_document_metadata_requires_a_saved_unmodified_version():

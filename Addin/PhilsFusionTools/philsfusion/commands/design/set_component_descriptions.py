@@ -1334,8 +1334,9 @@ def _execute(args):
         if progress_dialog:
             try:
                 progress_dialog.hide()
-            except Exception:
-                pass
+                adsk.doEvents()
+            except Exception as error:
+                logger.log(f"SET_DESC: metadata progress dialog did not hide cleanly: {error}")
 
     if pending_metadata:
         pending_names = sorted({_component_name(comp) for comp in pending_metadata})
@@ -1414,6 +1415,9 @@ def _execute(args):
                         comp,
                         "partNumber",
                         target_part_number,
+                        attempts=3,
+                        retry_seconds=1,
+                        event_pump=adsk.doEvents,
                     )
                     if result.persisted:
                         stats["part_numbers_set"] += 1
@@ -1475,7 +1479,14 @@ def _execute(args):
             stats["existing_kept"] += 1
             desc_blocked = True
         else:
-            result = set_string_property_verified(comp, "description", desc)
+            result = set_string_property_verified(
+                comp,
+                "description",
+                desc,
+                attempts=3,
+                retry_seconds=1,
+                event_pump=adsk.doEvents,
+            )
             if result.persisted:
                 stats["descriptions_set"] += 1
             else:
