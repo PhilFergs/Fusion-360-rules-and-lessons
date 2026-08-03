@@ -8,6 +8,8 @@ import adsk.fusion
 from philsfusion.services.component_properties import (
     document_metadata_state,
     set_string_property_verified,
+    simplified_part_number,
+    wait_for_component_metadata,
 )
 
 from . import context as ctx
@@ -162,54 +164,8 @@ def _component_name(comp):
         return "<unnamed>"
 
 
-def _strip_version_suffix(text):
-    return re.sub(r"\s+v\d+$", "", (text or "").strip(), flags=re.IGNORECASE).strip()
-
-
-def _looks_like_profile_suffix(text):
-    txt = _strip_version_suffix(text).upper().strip()
-    if not txt:
-        return False
-
-    known_tokens = (
-        "SHS",
-        "RHS",
-        "CHS",
-        "EA",
-        "UA",
-        "UB",
-        "UC",
-        "PFC",
-        "C PURLIN",
-        "C-PURLIN",
-        "FLAT BAR",
-        "PLATE",
-        "PL",
-    )
-    if any(txt.startswith(token) for token in known_tokens):
-        return True
-
-    # Profile suffixes normally begin with stock dimensions, e.g. 100x50x3 RHS.
-    if re.match(r"^\d+(?:\.\d+)?\s*[xX]\s*\d+", txt):
-        return True
-
-    return False
-
-
 def _short_part_number_from_name(name):
-    text = _strip_version_suffix(name)
-    if not text or text.startswith("<"):
-        return ""
-
-    split_match = re.match(r"^(.+?)\s*-\s*(.+)$", text)
-    if split_match and _looks_like_profile_suffix(split_match.group(2)):
-        return split_match.group(1).strip()
-
-    space_match = re.match(r"^([A-Za-z]+\d+[A-Za-z0-9]*)\s+(.+)$", text)
-    if space_match and _looks_like_profile_suffix(space_match.group(2)):
-        return space_match.group(1).strip()
-
-    return text
+    return simplified_part_number(name)
 
 
 def _component_part_number(comp):
@@ -1328,6 +1284,72 @@ def _execute(args):
 
     if not components:
         ui.messageBox("No components found. Select components/occurrences/bodies or enable Whole design.")
+        return
+
+    metadata_targets = [
+        comp
+        for comp in components
+        if not _is_referenced_component(comp) and _is_leaf_target_component(comp)
+    ]
+    progress_dialog = None
+    pending_metadata = tuple(metadata_targets)
+    try:
+        try:
+            progress_dialog = ui.createProgressDialog()
+            progress_dialog.isCancelButtonShown = False
+            progress_dialog.isBackgroundTranslucent = False
+            progress_dialog.show(
+                CMD_NAME,
+                "Waiting for Fusion cloud metadata: %v seconds",
+                0,
+                45,
+                0,
+            )
+        except Exception as error:
+            progress_dialog = None
+            logger.log(f"SET_DESC: metadata progress dialog unavailable: {error}")
+
+        def update_metadata_progress(pending, elapsed):
+            if not progress_dialog:
+                return
+            try:
+                progress_dialog.progressValue = min(44, int(elapsed))
+                progress_dialog.message = (
+                    f"Waiting for Fusion cloud metadata: {len(pending)} component(s) pending"
+                )
+            except Exception as error:
+                logger.log(f"SET_DESC: metadata progress update failed: {error}")
+
+        logger.log(
+            f"SET_DESC: waiting for metadata targets={len(metadata_targets)} timeout_seconds=45"
+        )
+        pending_metadata = wait_for_component_metadata(
+            metadata_targets,
+            timeout_seconds=45,
+            poll_seconds=0.5,
+            event_pump=adsk.doEvents,
+            on_poll=update_metadata_progress,
+        )
+    finally:
+        if progress_dialog:
+            try:
+                progress_dialog.hide()
+            except Exception:
+                pass
+
+    if pending_metadata:
+        pending_names = sorted({_component_name(comp) for comp in pending_metadata})
+        logger.log(
+            "SET_DESC: metadata timeout; no changes made; pending="
+            + ", ".join(pending_names)
+        )
+        ui.messageBox(
+            "Fusion is still synchronising cloud metadata for these components:\n\n"
+            + "\n".join(pending_names[:20])
+            + "\n\nNo descriptions or part numbers were changed. Wait for Fusion's "
+            + "save/sync to finish, then run this command again.",
+            CMD_NAME,
+        )
         return
 
     stats = {
