@@ -1303,7 +1303,7 @@ def _execute(args):
                 "Waiting for Fusion cloud metadata: %v seconds",
                 0,
                 45,
-                0,
+                1,
             )
         except Exception as error:
             progress_dialog = None
