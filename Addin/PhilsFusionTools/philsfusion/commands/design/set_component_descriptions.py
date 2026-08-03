@@ -1291,52 +1291,15 @@ def _execute(args):
         for comp in components
         if not _is_referenced_component(comp) and _is_leaf_target_component(comp)
     ]
-    progress_dialog = None
-    pending_metadata = tuple(metadata_targets)
-    try:
-        try:
-            progress_dialog = ui.createProgressDialog()
-            progress_dialog.isCancelButtonShown = False
-            progress_dialog.isBackgroundTranslucent = False
-            progress_dialog.show(
-                CMD_NAME,
-                "Waiting for Fusion cloud metadata: %v seconds",
-                0,
-                45,
-                1,
-            )
-        except Exception as error:
-            progress_dialog = None
-            logger.log(f"SET_DESC: metadata progress dialog unavailable: {error}")
-
-        def update_metadata_progress(pending, elapsed):
-            if not progress_dialog:
-                return
-            try:
-                progress_dialog.progressValue = min(44, int(elapsed))
-                progress_dialog.message = (
-                    f"Waiting for Fusion cloud metadata: {len(pending)} component(s) pending"
-                )
-            except Exception as error:
-                logger.log(f"SET_DESC: metadata progress update failed: {error}")
-
-        logger.log(
-            f"SET_DESC: waiting for metadata targets={len(metadata_targets)} timeout_seconds=45"
-        )
-        pending_metadata = wait_for_component_metadata(
-            metadata_targets,
-            timeout_seconds=45,
-            poll_seconds=0.5,
-            event_pump=adsk.doEvents,
-            on_poll=update_metadata_progress,
-        )
-    finally:
-        if progress_dialog:
-            try:
-                progress_dialog.hide()
-                adsk.doEvents()
-            except Exception as error:
-                logger.log(f"SET_DESC: metadata progress dialog did not hide cleanly: {error}")
+    logger.log(
+        f"SET_DESC: waiting for metadata targets={len(metadata_targets)} timeout_seconds=45"
+    )
+    pending_metadata = wait_for_component_metadata(
+        metadata_targets,
+        timeout_seconds=45,
+        poll_seconds=0.5,
+        event_pump=adsk.doEvents,
+    )
 
     if pending_metadata:
         pending_names = sorted({_component_name(comp) for comp in pending_metadata})
